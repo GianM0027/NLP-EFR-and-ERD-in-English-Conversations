@@ -202,7 +202,6 @@ class F1_Score(Metric):
         :param accumulate_statistic: Whether to accumulate internal statistics.
 
         :return: Computed F1 Score.
-
         """
 
         tps, fps, fns = self.update_state(predicted_classes, target_classes)

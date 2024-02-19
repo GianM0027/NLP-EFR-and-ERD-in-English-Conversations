@@ -12,6 +12,9 @@ class MajorityClassifier:
         self.major_trigger = None
 
     def fit(self, train_df: pd.DataFrame) -> None:
+        """
+        #todo doc
+        """
         flatten_emotions = [item for sublist in train_df["emotions"] for item in sublist]
         flatten_triggers = [item for sublist in train_df["triggers"] for item in sublist]
 

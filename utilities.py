@@ -1,7 +1,10 @@
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
+from transformers import BertModel, BertTokenizer
+
 
 def replace_nan_with_zero(lst: list) -> list:
     """
@@ -51,13 +54,50 @@ def plot_emotion_distribution(train_df: pd.DataFrame, val_df: pd.DataFrame, test
     titles = ['Training Set', 'Validation Set', 'Test Set']
 
     for i, dataset in enumerate(datasets):
-        plt.subplot(1, 3, i+1)
+        plt.subplot(1, 3, i + 1)
         flatten_emotions = [item for sublist in dataset["emotions"] for item in sublist]
         emotion_values, emotion_counts = np.unique(flatten_emotions, return_counts=True)
         plt.bar(emotion_values, emotion_counts)
         plt.title(titles[i])
-        plt.xticks(rotation=45) # Rotate labels to avoid overlap
+        plt.xticks(rotation=45)  # Rotate labels to avoid overlap
         plt.ylabel('Counts')
 
     plt.tight_layout()
     plt.show()
+
+
+def download_bert_initializers(bert_path: os.path) -> (BertModel, BertTokenizer):
+    """
+    Downloads the BERT model and tokenizer of 'bert-base-uncased' and saves them to a specified directory.
+    This function checks if the directory exists, creates it if it does not, downloads the model and tokenizer,
+    and saves them in the specified directory for future utilization.
+
+    :param bert_path: The directory path where the BERT model and tokenizer should be saved.
+    :return: a tuple containing the downloaded BertModel and BertTokenizer instances.
+    """
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    model = BertModel.from_pretrained('bert-base-uncased')
+
+    tokenizer.save_pretrained(bert_path)
+    model.save_pretrained(bert_path)
+
+    print(f"BERT model and tokenizer have been saved to {bert_path}")
+
+    return model, tokenizer
+
+
+def retrieve_bert_initializers(bert_path: os.path) -> (BertModel, BertTokenizer):
+    """
+    Retrieves the BERT model and tokenizer from a specified directory.
+    This function loads the BERT model and tokenizer that were previously saved in a specified directory,
+    and returns them for future use.
+
+    :param bert_path: The directory path where the BERT model and tokenizer should be retrieved.
+    :return: a tuple containing the loaded BertModel and BertTokenizer instances.
+    """
+    tokenizer = BertTokenizer.from_pretrained(bert_path)
+    model = BertModel.from_pretrained(bert_path)
+
+    return model, tokenizer
+
+

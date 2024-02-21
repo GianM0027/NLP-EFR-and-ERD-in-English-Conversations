@@ -189,8 +189,8 @@ class TrainableModule(DrTorchModule):
         Validate the model on the given data loader.
 
         :param data_loader: DataLoader containing data.
-        :param criterion: A dictionary containing the name and the loss function to use.
-        :param metrics: A list of dictionaries containing the name and the functions of the metrics to calculate.
+        :param criterion: #Todo
+        :param metrics: #ToDO
         :param aggregate_loss_on_dataset: If True, the reduce strategy is applied over all the loss of the samples of the dataset.
                                           Otherwise, the reduce strategy is applied over all the batches to get a partial loss for each batch,
                                           then the partial losses are reduced to get a unique loss for the epoch.
@@ -234,6 +234,17 @@ class TrainableModule(DrTorchModule):
         for metric in metrics:
             results[metric.name] = metric.get_result()
             metric.reset_state()
+
+        return results
+
+        for metric in metrics:
+            if isinstance(metric, Metric):
+                results[metric.name] = metric.get_result()
+                metric.reset_state()
+            elif isinstance(metric, Dict):
+                for current_metric in metric.values():
+                    results[current_metric.name] = current_metric.get_result()
+                    current_metric.reset_state()
 
         return results
 
@@ -358,7 +369,8 @@ class TrainableModule(DrTorchModule):
                     val_history[key].append(value)
 
                 if interaction_with_wandb:
-                    for (train_key, train_value), (val_key, val_value) in zip(train_results.items(),val_results.items()):
+                    for (train_key, train_value), (val_key, val_value) in zip(train_results.items(),
+                                                                              val_results.items()):
                         log_params['train_' + 'loss' if criterion.name is train_key else train_key] = train_value
                         log_params['val_' + 'loss' if criterion.name is train_key else train_key] = val_value
 

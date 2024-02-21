@@ -9,7 +9,6 @@ from IPython.core.display_functions import display
 from transformers import BertModel, BertTokenizer
 
 
-
 def replace_nan_with_zero(lst: List) -> List:
     """
     Takes a list with NaN values and converts them to zero.
@@ -30,7 +29,7 @@ def split_dataset(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Data
     df['index'] = df.index
 
     # Shuffle the dataframe
-    df_shuffled = df.sample(frac=1, random_state=42, replace=False)
+    df_shuffled = df.sample(frac=1, replace=False)
 
     # Calculate the indexes for splitting
     train_end = int(len(df_shuffled) * 0.8)
@@ -41,7 +40,6 @@ def split_dataset(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Data
     val_df = df_shuffled[train_end:val_end]
     test_df = df_shuffled[val_end:]
 
-    # Riporta la colonna 'index' come indice
     train_df.set_index('index', inplace=True, drop=True)
     val_df.set_index('index', inplace=True, drop=True)
     test_df.set_index('index', inplace=True, drop=True)
@@ -78,7 +76,7 @@ def plot_emotion_distribution(train_df: pd.DataFrame, val_df: pd.DataFrame, test
     plt.show()
 
 
-def display_utterance(dataframe: pd.DataFrame, utterance_id: str | int):
+def display_utterance(dataframe: pd.DataFrame, utterance_id: str | int) -> None:
     """
     Display the data relate to a specific utterance id
 
@@ -97,7 +95,7 @@ def display_utterance(dataframe: pd.DataFrame, utterance_id: str | int):
     print()
 
 
-def download_bert_initializers(bert_path: os.path) -> (BertModel, BertTokenizer):
+def download_bert_initializers(bert_path: os.path) -> Tuple[BertModel, BertTokenizer]:
     """
     Downloads the BERT model and tokenizer of 'bert-base-uncased' and saves them to a specified directory.
     This function checks if the directory exists, creates it if it does not, downloads the model and tokenizer,
@@ -117,7 +115,7 @@ def download_bert_initializers(bert_path: os.path) -> (BertModel, BertTokenizer)
     return model, tokenizer
 
 
-def retrieve_bert_initializers(bert_path: os.path) -> (BertModel, BertTokenizer):
+def retrieve_bert_initializers(bert_path: os.path) -> Tuple[BertModel, BertTokenizer]:
     """
     Retrieves the BERT model and tokenizer from a specified directory.
     This function loads the BERT model and tokenizer that were previously saved in a specified directory,
@@ -130,5 +128,3 @@ def retrieve_bert_initializers(bert_path: os.path) -> (BertModel, BertTokenizer)
     model = BertModel.from_pretrained(bert_path)
 
     return model, tokenizer
-
-

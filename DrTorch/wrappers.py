@@ -16,11 +16,32 @@
 """
 
 
-from typing import Iterable, Optional, Callable, Any, Dict
+from typing import Iterable, Optional, Callable, Any, Dict, List
+from abc import ABC
+
+
 import torch
 
 
-class Criterion:
+class AbstractCriterion(ABC):
+    def __init__(self,
+                 name: str,
+                 reduction_function: Optional[Callable] = None):
+        """
+        Initialize a custom loss criterion.
+
+        :param name: A name for the criterion.
+        :param reduction_function: Specifies the reduction function method that you want to use
+        """
+
+        self.name = name
+        self.reduction_function = reduction_function
+
+    def __str__(self):
+        return self.name
+
+
+class Criterion(AbstractCriterion):
     """
 
     A class representing a custom loss criterion for training neural networks.
@@ -52,7 +73,7 @@ class Criterion:
     def __init__(self,
                  name: str,
                  loss_function: Callable,
-                 reduction_function: Callable):
+                 reduction_function: Optional[Callable] = None):
         """
         Initialize a custom loss criterion.
 
@@ -61,10 +82,8 @@ class Criterion:
                               In case of Pytorch loss function instantiated using reduction='none'.
         :param reduction_function: Specifies the reduction function method that you want to use
         """
-
-        self.name = name
+        super().__init__(name=name, reduction_function=reduction_function)
         self.loss_function = loss_function
-        self.reduction_function = reduction_function
 
     def __call__(self,
                  predicted_labels: torch.Tensor | Any,
@@ -84,8 +103,37 @@ class Criterion:
 
         return output
 
-    def __str__(self):
-        return self.name
+
+class MultyHeadCriterion(AbstractCriterion):
+    def __init__(self,
+                 name: str,
+                 loss_functions: Dict[str, Callable],
+                 loss_weights: List[int],
+                 reduction_function: Optional[Callable] = None):
+
+        super().__init__(name=name, reduction_function=reduction_function)
+        self.loss_functions = loss_functions
+        self.loss_weights = loss_weights
+
+    def __call__(self,
+                 predicted_labels: torch.Tensor | Any,
+                 target_labels: torch.Tensor) -> torch.Tensor:
+        """
+        Compute the loss between predicted and target labels as a torch.Tensor instantiated on the device
+        where the input tensor are located.
+
+        :param predicted_labels: Predicted labels.
+        :param target_labels: Target labels.
+
+        :return: The computed loss.
+
+        """
+
+        loss_weights, losses = [], []
+        for head_key, current_head_loss in self.loss_functions:
+            losses.append(current_head_loss(predicted_labels[head_key], target_labels[head_key]))
+        loss = torch.sum(torch.stack([self.loss_weights * current_loss for weight, current_loss in zip(loss_weights, losses)]), dim=0)
+        return loss
 
 
 class OptimizerWrapper:

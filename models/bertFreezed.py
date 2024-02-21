@@ -13,4 +13,5 @@ class BertFreezed(TrainableModule):
         self.triggers_classification_head = torch.nn.Linear(hidden_size, 2)
 
     def forward(self, kwards: dict):
+        # output come dizionario con chiavi "emotion" e "trigger"
         pass

@@ -1,9 +1,13 @@
 from typing import Tuple, List
 
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from IPython.core.display_functions import display
+from transformers import BertModel, BertTokenizer
+
 
 
 def replace_nan_with_zero(lst: List) -> List:
@@ -23,7 +27,6 @@ def split_dataset(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Data
     :param df: original dataframe to split
     :return: train, validation and test sets (80, 10, 10), in this order.
     """
-    # Aggiungi una colonna 'index' per mantenere l'indice originale
     df['index'] = df.index
 
     # Shuffle the dataframe
@@ -92,3 +95,40 @@ def display_utterance(dataframe: pd.DataFrame, utterance_id: str | int):
     print(utterance_id.replace('_', ' ').capitalize())
     display(new_df)
     print()
+
+
+def download_bert_initializers(bert_path: os.path) -> (BertModel, BertTokenizer):
+    """
+    Downloads the BERT model and tokenizer of 'bert-base-uncased' and saves them to a specified directory.
+    This function checks if the directory exists, creates it if it does not, downloads the model and tokenizer,
+    and saves them in the specified directory for future utilization.
+
+    :param bert_path: The directory path where the BERT model and tokenizer should be saved.
+    :return: a tuple containing the downloaded BertModel and BertTokenizer instances.
+    """
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    model = BertModel.from_pretrained('bert-base-uncased')
+
+    tokenizer.save_pretrained(bert_path)
+    model.save_pretrained(bert_path)
+
+    print(f"BERT model and tokenizer have been saved to {bert_path}")
+
+    return model, tokenizer
+
+
+def retrieve_bert_initializers(bert_path: os.path) -> (BertModel, BertTokenizer):
+    """
+    Retrieves the BERT model and tokenizer from a specified directory.
+    This function loads the BERT model and tokenizer that were previously saved in a specified directory,
+    and returns them for future use.
+
+    :param bert_path: The directory path where the BERT model and tokenizer should be retrieved.
+    :return: a tuple containing the loaded BertModel and BertTokenizer instances.
+    """
+    tokenizer = BertTokenizer.from_pretrained(bert_path)
+    model = BertModel.from_pretrained(bert_path)
+
+    return model, tokenizer
+
+

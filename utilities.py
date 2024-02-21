@@ -85,12 +85,16 @@ def display_utterance(dataframe: pd.DataFrame, utterance_id: str | int) -> None:
     :return: None
     """
     table_data = []
-    for column_value in dataframe.loc[utterance_id]:
+
+    df_portion = dataframe.loc[utterance_id] if type(utterance_id) is str else dataframe.iloc[utterance_id]
+
+    for column_value in df_portion:
         table_data.append(column_value)
 
     new_df = pd.DataFrame(table_data).transpose()
     new_df.columns = dataframe.columns
-    print(utterance_id.replace('_', ' ').capitalize())
+    if type(utterance_id) is str:
+        print(utterance_id.replace('_', ' ').capitalize())
     display(new_df)
     print()
 

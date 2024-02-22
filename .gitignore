@@ -1,6 +1,6 @@
 .venv/
 .idea
-bert-base-uncased/
+local-bert/
 __pycache__
 DrTorch/__pycache__/
 models/__pycache__/git

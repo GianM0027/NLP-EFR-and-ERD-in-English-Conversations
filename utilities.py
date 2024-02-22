@@ -126,7 +126,7 @@ def produce_speaker_emotion_distribution(dataframe)-> pd.DataFrame:
     return tpm_df.sort_values(by=emotions, ascending=[False]*len(emotions))
 def download_bert_initializers(bert_path: os.path) -> Tuple[BertModel, BertTokenizer]:
     """
-    Downloads the BERT model and tokenizer of 'bert-base-uncased' and saves them to a specified directory.
+    Downloads the BERT model and tokenizer of 'local-bert' and saves them to a specified directory.
     This function checks if the directory exists, creates it if it does not, downloads the model and tokenizer,
     and saves them in the specified directory for future utilization.
 

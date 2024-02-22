@@ -15,14 +15,15 @@
 
 """
 
-import functools
+
 from typing import Optional, Callable, List, Any, Dict, Tuple
+from sympy import Float
 
 from abc import ABC, abstractmethod
 
 import torch
+import functools
 import numpy as np
-from sympy import Float
 
 
 class Metric(ABC):
@@ -31,8 +32,6 @@ class Metric(ABC):
 
     Attributes:
         name (str): Name of the metric.
-        pred_transform (Callable): A transformation that can be used to map the model output into a suitable metric input.
-        target_transform (Callable): A transformation that can be used to map the target_labels into a suitable metric input.
 
     Methods:
         __call__(self, predicted_classes, target_classes, accumulate_statistic=False):
@@ -153,6 +152,8 @@ class SingleHeadMetric(Metric, ABC):
 
 
 class MultyHeadMetric(Metric):
+
+    # todo documentation
 
     def __init__(self, name: str,
                  metrics_functions: Dict[str, Callable],

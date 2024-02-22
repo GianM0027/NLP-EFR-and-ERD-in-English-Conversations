@@ -1,4 +1,8 @@
-.venv
+.venv/
 .idea
-bert-base-uncased
+bert-base-uncased/
 __pycache__
+DrTorch/__pycache__/
+models/__pycache__/git
+
+*.pyc

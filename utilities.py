@@ -95,10 +95,35 @@ def display_utterance(dataframe: pd.DataFrame, utterance_id: str | int) -> None:
     new_df.columns = dataframe.columns
     if type(utterance_id) is str:
         print(utterance_id.replace('_', ' ').capitalize())
+    else:
+        print('Utterance_' + utterance_id)
     display(new_df)
     print()
 
 
+def produce_emotion_distribution_for_speakers(dataframe)-> pd.DataFrame:
+    """
+     Produce emotion distribution for each speaker based on the provided dataframe.
+
+     This function extracts emotion data associated with each speaker from the input dataframe and creates a new dataframe
+     representing the distribution of emotions for each speaker.
+
+     :param dataframe: A pandas DataFrame containing the data. It should have columns 'speakers' and 'emotions', where
+                       'speakers' contain lists of speaker identifiers and 'emotions' contain lists of emotions associated
+                       with each speaker.
+     :return: A pandas DataFrame representing the emotion distribution for each speaker.
+              The DataFrame has speakers as rows and emotions as columns. Each cell represents the count of occurrences
+              of an emotion for a particular speaker. If an emotion didn't occur for a speaker, the cell value will be 0.
+     """
+
+    tmp_dict = {'speakers': [element for current_list in dataframe['speakers'] for element in current_list],
+                'emotions': [element for current_list in dataframe['emotions'] for element in current_list]
+                }
+    tmp_df = pd.DataFrame(tmp_dict)
+    emotions = tmp_df['emotions'].unique().tolist()
+    tpm_df = tmp_df.pivot_table(index='speakers', columns='emotions', aggfunc='size', fill_value=0)
+
+    return tpm_df.sort_values(by=emotions, ascending=[False]*len(emotions))
 def download_bert_initializers(bert_path: os.path) -> Tuple[BertModel, BertTokenizer]:
     """
     Downloads the BERT model and tokenizer of 'bert-base-uncased' and saves them to a specified directory.

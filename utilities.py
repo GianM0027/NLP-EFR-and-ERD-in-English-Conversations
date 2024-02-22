@@ -101,7 +101,7 @@ def display_utterance(dataframe: pd.DataFrame, utterance_id: str | int) -> None:
     print()
 
 
-def produce_emotion_distribution_for_speakers(dataframe)-> pd.DataFrame:
+def produce_speaker_emotion_distribution(dataframe)-> pd.DataFrame:
     """
      Produce emotion distribution for each speaker based on the provided dataframe.
 

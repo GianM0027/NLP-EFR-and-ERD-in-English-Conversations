@@ -29,7 +29,7 @@ def split_dataset(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Data
     df['index'] = df.index
 
     # Shuffle the dataframe
-    df_shuffled = df.sample(frac=1, random_state=42, replace=False)
+    df_shuffled = df.sample(frac=1, replace=False)
 
     # Calculate the indexes for splitting
     train_end = int(len(df_shuffled) * 0.8)
@@ -40,7 +40,6 @@ def split_dataset(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Data
     val_df = df_shuffled[train_end:val_end]
     test_df = df_shuffled[val_end:]
 
-    # Riporta la colonna 'index' come indice
     train_df.set_index('index', inplace=True, drop=True)
     val_df.set_index('index', inplace=True, drop=True)
     test_df.set_index('index', inplace=True, drop=True)
@@ -77,7 +76,7 @@ def plot_emotion_distribution(train_df: pd.DataFrame, val_df: pd.DataFrame, test
     plt.show()
 
 
-def display_utterance(dataframe: pd.DataFrame, utterance_id: str | int):
+def display_utterance(dataframe: pd.DataFrame, utterance_id: str | int) -> None:
     """
     Display the data relate to a specific utterance id
 
@@ -86,12 +85,16 @@ def display_utterance(dataframe: pd.DataFrame, utterance_id: str | int):
     :return: None
     """
     table_data = []
-    for column_value in dataframe.loc[utterance_id]:
+
+    df_portion = dataframe.loc[utterance_id] if type(utterance_id) is str else dataframe.iloc[utterance_id]
+
+    for column_value in df_portion:
         table_data.append(column_value)
 
     new_df = pd.DataFrame(table_data).transpose()
     new_df.columns = dataframe.columns
-    print(utterance_id.replace('_', ' ').capitalize())
+    if type(utterance_id) is str:
+        print(utterance_id.replace('_', ' ').capitalize())
     display(new_df)
     print()
 
@@ -129,5 +132,3 @@ def retrieve_bert_initializers(bert_path: os.path) -> Tuple[BertModel, BertToken
     model = BertModel.from_pretrained(bert_path)
 
     return model, tokenizer
-
-

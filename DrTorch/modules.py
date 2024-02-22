@@ -18,8 +18,8 @@ from typing import Union, Any, Dict, List, Tuple, Callable, Optional
 
 import wandb
 
-from .wrappers import Criterion, OptimizerWrapper
-from .metrics import Metric
+from .wrappers import Criterion, OptimizerWrapper, MultyHeadCriterion
+from .metrics import Metric, MultyHeadMetric
 from .callbacks import EarlyStopper
 
 import os
@@ -181,16 +181,16 @@ class TrainableModule(DrTorchModule):
 
     def validate(self,
                  data_loader: torch.utils.data.DataLoader,
-                 criterion: Criterion,
-                 metrics: Optional[List[Metric]] = None,
+                 criterion: Criterion | MultyHeadCriterion,
+                 metrics: Optional[List[Metric | MultyHeadMetric]] = None,
                  aggregate_loss_on_dataset: bool = True) -> Dict[str, float] | Tuple[Dict[str, float], torch.Tensor]:
 
         """
         Validate the model on the given data loader.
 
         :param data_loader: DataLoader containing data.
-        :param criterion: #Todo
-        :param metrics: #ToDO
+        :param criterion: # Todo
+        :param metrics: # ToDO
         :param aggregate_loss_on_dataset: If True, the reduce strategy is applied over all the loss of the samples of the dataset.
                                           Otherwise, the reduce strategy is applied over all the batches to get a partial loss for each batch,
                                           then the partial losses are reduced to get a unique loss for the epoch.
@@ -208,7 +208,18 @@ class TrainableModule(DrTorchModule):
 
         results = {criterion.name: []}
         for metric in metrics:
-            results[metric.name] = []
+            if isinstance(metric, Metric):
+                results[metric.name] = []
+                results[metric.name] = []
+            elif isinstance(metric, MultyHeadMetric):
+                results[metric.name] = []
+                results[metric.name] = []
+                for head_metric in metric.metrics_functions.values:
+                    results[head_metric.name] = []
+                    results[head_metric.name] = []
+            else:
+                raise TypeError('Inconsistent type for metric parameter. \\'
+                                'Only Metric or MultyHeadMetric object allowed.')
 
         aggregated_losses = torch.tensor([], device='cpu')
 
@@ -232,29 +243,24 @@ class TrainableModule(DrTorchModule):
         results[criterion.name] = criterion.reduction_function(aggregated_losses).item()
 
         for metric in metrics:
-            results[metric.name] = metric.get_result()
-            metric.reset_state()
-
-        return results
-
-        for metric in metrics:
             if isinstance(metric, Metric):
                 results[metric.name] = metric.get_result()
                 metric.reset_state()
-            elif isinstance(metric, Dict):
-                for current_metric in metric.values():
-                    results[current_metric.name] = current_metric.get_result()
-                    current_metric.reset_state()
+            elif isinstance(metric, MultyHeadMetric):
+                metric_results = metric(outputs, labels)
+                for head_metric, head_metric_result in zip(metric.metrics_functions, metric_results.values()):
+                    results[head_metric.name] = head_metric_result
+                    head_metric.reset_state()
 
         return results
 
     def fit(self,
             train_loader: torch.utils.data.DataLoader,
             val_loader: torch.utils.data.DataLoader,
-            criterion: Criterion,
+            criterion: Criterion | MultyHeadCriterion,
             optimizer: OptimizerWrapper,
             num_epochs: int,
-            metrics: Optional[List[Metric]] = None,
+            metrics: Optional[List[Metric | MultyHeadMetric]] = None,
             early_stopper: EarlyStopper = None,
             aggregate_loss_on_dataset: bool = True,
             verbose: bool = True,
@@ -317,8 +323,18 @@ class TrainableModule(DrTorchModule):
             metrics = []
 
         for metric in metrics:
-            train_history[metric.name] = []
-            val_history[metric.name] = []
+            if isinstance(metric, Metric):
+                train_history[metric.name] = []
+                val_history[metric.name] = []
+            elif isinstance(metric, MultyHeadMetric):
+                train_history[metric.name] = []
+                val_history[metric.name] = []
+                for head_metric in metric.metrics_functions.values:
+                    train_history[head_metric.name] = []
+                    val_history[head_metric.name] = []
+            else:
+                raise TypeError('Inconsistent type for metric parameter. \\'
+                                'Only Metric or MultyHeadMetric object allowed.')
 
         iterations_per_epoch = len(train_loader)
 
@@ -340,15 +356,26 @@ class TrainableModule(DrTorchModule):
                     loss = criterion.reduction_function(loss)
                     loss.backward()
                     optimizer.step()
-                    metrics_value = []
+
+                    metrics_value = {}
 
                     for metric in metrics:
-                        metrics_value.append(metric(outputs, labels))
+                        if isinstance(metric, Metric):
+                            metrics_value[metric.name] = metric(outputs, labels)
+                        elif isinstance(metric, MultyHeadMetric):
+                            metric_results = metric(outputs, labels)
+                            for head_metric_result in metric_results.values():
+                                metrics_value[metric.name] = head_metric_result
 
                     if verbose:
                         out_str = f"\r Epoch: {epoch + 1}/{num_epochs} Iterations: {iteration + 1}/{iterations_per_epoch} - {criterion.name}: {loss.item()}"
                         for idx, metric in enumerate(metrics):
-                            out_str += f" - {metric.name}: {metrics_value[idx]}"
+                            if isinstance(metric, Metric):
+                                out_str += f" - {metric.name}: {metrics_value[metric.name]}"
+                            elif isinstance(metric, MultyHeadMetric):
+                                for head_metric in enumerate(metric.metrics_functions.values()):
+                                    out_str += f" - {head_metric.name}: {metrics_value[head_metric.name]}"
+
                         sys.stdout.write(out_str)
                         sys.stdout.flush()
 

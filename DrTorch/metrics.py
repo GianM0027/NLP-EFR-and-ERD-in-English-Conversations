@@ -15,7 +15,6 @@
 
 """
 
-
 import functools
 from typing import Optional, Callable, List, Any, Dict, Tuple
 
@@ -23,6 +22,7 @@ from abc import ABC, abstractmethod
 
 import torch
 import numpy as np
+from sympy import Float
 
 
 class Metric(ABC):
@@ -47,36 +47,8 @@ class Metric(ABC):
     """
 
     def __init__(self,
-                 num_classes: int,
-                 name: str = "default_name",
-                 pred_transform: Optional[Callable] = None,
-                 target_transform: Optional[Callable] = None):
-        """
-        Initialize a Metric object.
-
-        :param num_classes: The number of classes for which the metric is computed.
-        :param name: Name of the metric.
-        :param pred_transform: A transformation function for mapping the model output into a suitable metric input.
-                              If None, defaults to rounding for binary classification and argmax for multiclass.
-        :param target_transform: A transformation function for mapping the target labels into a suitable metric input.
-                                If None and num_classes is not 2, defaults to argmax.
-
-        """
-
-        self.num_classes = num_classes
+                 name: str = "default_name"):
         self.name = name
-
-        if pred_transform is None:
-            if self.num_classes == 2:
-                pred_transform = torch.round
-            else:
-                pred_transform = functools.partial(torch.argmax, dim=-1)
-
-        if target_transform is None and self.num_classes != 2:
-            target_transform = functools.partial(torch.argmax, dim=-1)
-
-        self.pred_transform = pred_transform
-        self.target_transform = target_transform
 
     @abstractmethod
     def __call__(self,
@@ -136,8 +108,113 @@ class Metric(ABC):
         """
         pass
 
+    def __str__(self) -> str:
+        """
+        Get the name of the metric as a string.
 
-class F1_Score(Metric):
+        :return: Name of the metric.
+
+        """
+        return self.name
+
+
+class SingleHeadMetric(Metric, ABC):
+    def __init__(self, num_classes: int,
+                 name: str = "default_name",
+                 pred_transform: Optional[Callable] = None,
+                 target_transform: Optional[Callable] = None):
+        """
+        Initialize a SingleHeadMetric object.
+
+        :param num_classes: The number of classes for which the metric is computed.
+        :param name: Name of the metric.
+        :param pred_transform: A transformation function for mapping the model output into a suitable metric input.
+                              If None, defaults to rounding for binary classification and argmax for multiclass.
+        :param target_transform: A transformation function for mapping the target labels into a suitable metric input.
+                                If None and num_classes is not 2, defaults to argmax.
+
+        """
+
+        super().__init__(name)
+        self.num_classes = num_classes
+        self.name = name
+
+        if pred_transform is None:
+            if self.num_classes == 2:
+                pred_transform = torch.round
+            else:
+                pred_transform = functools.partial(torch.argmax, dim=-1)
+
+        if target_transform is None and self.num_classes != 2:
+            target_transform = functools.partial(torch.argmax, dim=-1)
+
+        self.pred_transform = pred_transform
+        self.target_transform = target_transform
+
+
+class MultyHeadMetric(Metric):
+
+    def __init__(self, name: str,
+                 metrics_functions: Dict[str, Callable],
+                 metric_weights: Optional[List[int]] = None,
+                 aggregate_metrics_function: Optional[Callable] = None):
+
+        super().__init__(name)
+        self.metrics_functions = {}
+        self.metric_weights = metric_weights
+
+        for head_key, metric_params in metrics_functions:
+            metric_constructor = metric_params.pop('metric_constructor')
+            self.metrics_functions[head_key] = metric_constructor(**metric_params)
+
+        if aggregate_metrics_function is not None:
+            self.aggregate_metrics_function = aggregate_metrics_function
+
+    def __call__(self,
+                 predicted_classes: torch.Tensor,
+                 target_classes: torch.Tensor,
+                 accumulate_statistic: bool = False):
+
+        results = {}
+
+        for head_key, metric in self.metrics_functions:
+            results[head_key] = metric(predicted_classes=predicted_classes[head_key],
+                                       target_classes=target_classes[head_key])
+
+        if self.aggregate_metrics_function is not None:
+            if self.metric_weights is not None:
+                results[self.name] = self.aggregate_metrics_function(self.metric_weights, results.values())
+            else:
+                results[self.name] = self.aggregate_metrics_function(results.values())
+
+        return results
+
+    def update_state(self,
+                     predicted_classes: Dict[str, torch.Tensor],
+                     target_classes: Dict[str, torch.Tensor]):
+
+        for head_key, metric in self.metrics_functions:
+            metric.update_state(predicted_classes=predicted_classes[head_key],
+                                target_classes=target_classes[head_key])
+
+    def reset_state(self) -> None:
+        for _, metric in self.metrics_functions:
+            metric.reset_state()
+
+    def get_result(self) -> Dict[str, Float]:
+        results = {}
+        for head_key, metric in self.metrics_functions:
+            results[head_key] = metric.get_result()
+        if self.aggregate_metrics_function is not None:
+            if self.metric_weights is not None:
+                results[self.name] = self.aggregate_metrics_function(self.metric_weights, results.values())
+            else:
+                results[self.name] = self.aggregate_metrics_function(results.values())
+
+        return results
+
+
+class F1_Score(SingleHeadMetric):
     """
     F1 Score metric implementation for multiclass classification tasks.
 
@@ -224,15 +301,6 @@ class F1_Score(Metric):
             raise ValueError("Undefined mode specified, available modes are 'none','macro' and 'micro'")
 
         return result
-
-    def __str__(self) -> str:
-        """
-        Get the name of the metric as a string.
-
-        :return: Name of the metric.
-
-        """
-        return self.name
 
     def update_state(self,
                      predicted_classes: torch.Tensor,

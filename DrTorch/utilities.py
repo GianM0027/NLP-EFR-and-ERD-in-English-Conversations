@@ -26,32 +26,83 @@ from matplotlib import pyplot as plt
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self,
-                 data_df: pd.DataFrame,
-                 label_df: pd.DataFrame,
-                 data_pipeline: Callable,
-                 label_pipeline: Callable):
+                 data: pd.DataFrame | Dict,
+                 labels: pd.DataFrame | Dict,
+                 sample_preprocess_f: Optional[Callable] = None,
+                 label_preprocess_f: Optional[Callable] = None):
         """
         CustomDataset class for PyTorch.
 
-        :param data_df: The input DataFrame containing data.
-        :param label_df: The input DataFrame containing labels.
-        :param data_pipeline :A function or transformation to be applied to each data sample.
-        :param label_pipeline: A function or transformation to be applied to each label sample.
+        :param data: The input data.
+        :param labels: The input labels.
+        :param sample_preprocess_f: A function or transformation to be applied to each data sample, but once by once.
+        :param label_preprocess_f: A function or transformation to be applied to each label sample but once by once.
         """
-        self.data_df = data_df
-        self.label_df = label_df
-        self.data_pipeline = data_pipeline
-        self.label_pipeline = label_pipeline
+        self.data = data
+        self.labels = labels
+        self.sample_preprocess_f = sample_preprocess_f
+        self.label_preprocess_f = label_preprocess_f
+
+    @staticmethod
+    def __get_n_element(d: Dict) -> int:
+        """
+        Private static method that recursively examines a dictionary and returns the length of the first tensor
+        found at the last level.
+
+        :params d : The dictionary to examine.
+        :returns: The length of the first tensor found at the last level of the dictionary.
+
+        Example:
+            d = {'input_ids': torch.tensor([[1, 2, 3],
+                                            [4, 5, 6]]),
+                'attention_mask': torch.tensor([[1, 1, 0],
+                                                [1, 0, 0]])}
+            Dataset.__get_n_element(d)
+            >> 2
+        """
+
+        for v in d.values():
+            if isinstance(v, dict):
+                return Dataset.__get_n_element(v)
+            elif isinstance(v, torch.Tensor):
+                return v.shape[0]
+
+    @staticmethod
+    def __generate_sample(data_dict: Dict, idx: int) -> Dict:
+        """
+        Private static method to generate a sample from a data dictionary.
+
+        Parameters:
+        :params data_dict : The dictionary of data from which to generate the sample.
+        :params idx : The index of the sample to generate.
+
+        :returns:  The generated sample.
+
+        Example:
+            data_dict = {'input_ids': torch.tensor([[1, 2, 3], [4, 5, 6]]), 'attention_mask': torch.tensor([[1, 1, 0], [1, 0, 0]])}
+            Dataset.__generate_sample(data_dict, 1)
+            >>{'input_ids': tensor([4, 5, 6]), 'attention_mask': tensor([1, 0, 0])}
+
+        """
+        sample = {}
+        for key, value in data_dict.items():
+            if isinstance(value, dict):
+                sample[key] = Dataset.generate_data_sample(value, idx)
+            else:
+                sample[key] = value[idx] if isinstance(value, torch.Tensor) and idx < value.shape[0] else None
+        return sample
 
     def __len__(self) -> int:
-        """
-        Returns the total number of samples in the dataset.
-
-        Returns:
-        :return: The number of samples in the dataset.
-        """
-
-        return len(self.data_df)
+        if isinstance(self.data, pd.DataFrame):
+            n_element = len(self.data)
+        elif isinstance(self.data, Dict) or hasattr(self.data, 'keys'):
+            n_element = self.__get_n_element(self.data)
+        else:
+            print(type(self.data))
+            raise TypeError(
+                "Type inconsistency for the 'data' attribute. Only pd.Dataframe Dict or Dict like are allowed."
+                "The __len__() function is unable to compute the number of elements contained in the Dataset.")
+        return n_element
 
     def __getitem__(self, idx: int) -> tuple[Any, Any]:
         """
@@ -62,9 +113,29 @@ class Dataset(torch.utils.data.Dataset):
         :return: A tuple containing the processed data and label samples.
 
         """
-        data_sample = self.data_df.iloc[idx]
-        label_sample = self.label_df.iloc[idx]
-        return self.data_pipeline(data_sample), self.label_pipeline(label_sample)
+
+        if isinstance(self.data, pd.DataFrame):
+            data_sample = self.data.iloc[idx]
+        elif isinstance(self.data, Dict) or hasattr(self.data, 'keys'):
+            data_sample = self.__generate_sample(self.data, idx)
+        else:
+            raise TypeError(
+                "Type inconsistency for the 'data' attribute. Only pd.Dataframe Dict or Dict like are allowed.")
+
+        if isinstance(self.labels, pd.DataFrame):
+            label_sample = self.labels.iloc[idx]
+        elif isinstance(self.labels, Dict) or hasattr(self.labels, 'keys'):
+            label_sample = self.__generate_sample(self.labels, idx)
+        else:
+            raise TypeError(
+                "Type inconsistency for the 'label' attribute. Only pd.Dataframe, Dict or Dict like are allowed.")
+
+        if self.sample_preprocess_f is not None:
+            data_sample = self.sample_preprocess_f(data_sample)
+        if self.label_preprocess_f is not None:
+            label_sample = self.label_preprocess_f(label_sample)
+
+        return data_sample, 0  # label_sample
 
 
 class DataLoaderStrategy(ABC):
@@ -92,7 +163,7 @@ class DataLoaderStrategy(ABC):
                labels: Union[pd.DataFrame | torch.Tensor],
                shuffle: bool,
                device: str = 'cpu',
-               num_workers: int = 0,
+               num_workers: int = 1,
                **kwargs: Dict):
         """
         Abstract method to be implemented by subclasses. Defines the strategy for creating a data loader.
@@ -154,7 +225,7 @@ class DataLoaderFromTensorStrategy(DataLoaderStrategy):
                labels: torch.Tensor,
                shuffle: bool,
                device: str = 'cpu',
-               num_workers: int = 0,
+               num_workers: int = 1,
                batch_size: int = 32) -> torch.utils.data.DataLoader:
 
         """
@@ -188,8 +259,8 @@ class DataLoaderFromPipelineStrategy(DataLoaderStrategy):
     DataLoader strategy implementation using a custom data pipeline.
 
     Methods:
-    - create(data, labels, shuffle, device='cpu', pin_memory=False, num_workers: int = 1, batch_size: int = 32,
-             data_pipeline=None, label_pipeline=None) -> torch.utils.data.DataLoader:
+    - create(data, labels, shuffle, data_preprocess_f=None, labels_preprocess_f=None, device='cpu',
+             pin_memory=False, num_workers=1, batch_size=32, data_pipeline=None, label_pipeline=None) -> torch.utils.data.DataLoader:
         Create a DataLoader instance based on the provided data and labels, with optional data and label pipelines.
 
     Attributes:
@@ -197,42 +268,66 @@ class DataLoaderFromPipelineStrategy(DataLoaderStrategy):
     """
 
     def create(self,
-               data: Optional[torch.Tensor | pd.DataFrame],
-               labels: Optional[torch.Tensor | pd.DataFrame],
+               data: pd.DataFrame,
+               labels: pd.DataFrame,
                shuffle: bool,
+               data_preprocess_f: Optional[Callable] = None,
+               labels_preprocess_f: Optional[Callable] = None,
                device: str = 'cpu',
                pin_memory: bool = False,
                num_workers: int = 1,
                batch_size: int = 32,
-               data_pipeline: Callable = None,
-               label_pipeline: Callable = None):
+               sample_preprocess_f: Optional[Callable] = None,
+               label_preprocess_f: Optional[Callable] = None):
+        """
+        Create a DataLoader instance based on the provided data and labels, with optional data and label pipelines.
+
+        Parameters:
+        :param data: The data to be loaded.
+        :param labels: The labels corresponding to the data.
+        :param shuffle: Whether to shuffle the data during loading.
+        :param data_preprocess_f: A function to preprocess all the data before loading.
+                                  For instance, this function could tokenize all input data in a single operation.
+        :param labels_preprocess_f: A function to preprocess  all the labels before loading.
+                                    For instance, this function could one hot encode all the labels in a single operation.
+        :param device: The device on which to load the data ('cpu' or 'cuda').
+        :param pin_memory: Whether to pin memory for faster GPU transfer.
+        :param num_workers: Number of parallel processes to use for data loading.
+        :param batch_size: Size of the batches to load.
+        :param sample_preprocess_f: A function used to preprocess individual samples.
+                                     This function enables preprocessing operations to be applied on individual inputs.
+                                     It is particularly useful when dealing with large datasets, such as images,
+                                     where it may not be feasible to preprocess or load the entire dataset at once.
+                                     For instance, this function could load an image when the 'data' attribute
+                                     refers to a DataFrame containing paths to images.
+
+        :param label_preprocess_f: A function designed to preprocess individual labels.
+                                    This function allows for preprocessing operations to be applied on individual labels.
+                                    It is beneficial when it is impractical to preprocess or load the entire label set
+                                    simultaneously due to memory constraints.
+                                    For example, this function could apply a transformation to a single label,
+                                    such as categorical encoding.
+
+        Returns:
+        :return: torch.utils.data.DataLoader instance based on the provided parameters.
+
+        Example:
+        # Assuming `data` and `labels` are your data and labels, and `pipeline` is your data pipeline
+        dataloader_from_strategy_builder = DataLoaderFromPipelineStrategy()
+        dataloader = dataloader_from_strategy_builder.create(data, labels, shuffle=True, device='cuda', data_pipeline=pipeline)
+
         """
 
-         Parameters:
-         :param data: The data to be loaded.
-         :param labels: The labels corresponding to the data.
-         :param shuffle: Whether to shuffle the data during loading.
-         :param device: The device on which to load the data ('cpu' or 'cuda').
-         :param pin_memory: Whether to pin memory for faster GPU transfer.
-         :param num_workers: Number of parallel processes to use for data loading.
-         :param batch_size: Size of the batches to load.
-         :param data_pipeline: A data preprocessing pipeline.
-         :param label_pipeline: A label preprocessing pipeline.
+        if data_preprocess_f is not None:
+            data = data_preprocess_f(data)
 
-         Returns:
-         :return: torch.utils.data.DataLoader instance based on the provided parameters.
+        if labels_preprocess_f is not None:
+            labels = labels_preprocess_f(labels)
 
-         Example:
-         # Assuming `data` and `labels` are your data and labels, and `pipeline` is your data pipeline
-         dataloader_from_strategy_builder = DataLoaderFromPipelineStrategy()
-         dataloader = dataloader_from_strategy_builder.create(data, labels, shuffle=True, device='cuda', data_pipeline=pipeline)
-
-         """
-
-        dataset = Dataset(data_df=data,
-                          label_df=labels,
-                          data_pipeline=data_pipeline,
-                          label_pipeline=label_pipeline)
+        dataset = Dataset(data=data,
+                          labels=labels,
+                          sample_preprocess_f=sample_preprocess_f,
+                          label_preprocess_f=label_preprocess_f)
 
         if device == 'cuda' and torch.cuda.is_available():
             dataloader = torch.utils.data.DataLoader(dataset=dataset,

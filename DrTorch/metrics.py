@@ -118,6 +118,22 @@ class Metric(ABC):
 
 
 class SingleHeadMetric(Metric, ABC):
+
+    """
+    Abstract base class for implementing evaluation metrics for single-head models.
+
+    Attributes:
+    - num_classes (int): The number of classes for which the metric is computed.
+    - name (str): Name of the metric.
+    - pred_transform (Callable): A transformation function for mapping the model output into a suitable metric input.
+    - target_transform (Callable): A transformation function for mapping the target labels into a suitable metric input.
+
+    Methods:
+    - __init__(num_classes: int, name: str = "default_name", pred_transform: Optional[Callable] = None,
+               target_transform: Optional[Callable] = None):
+        Initialize a SingleHeadMetric object.
+    """
+
     def __init__(self, num_classes: int,
                  name: str = "default_name",
                  pred_transform: Optional[Callable] = None,
@@ -128,9 +144,9 @@ class SingleHeadMetric(Metric, ABC):
         :param num_classes: The number of classes for which the metric is computed.
         :param name: Name of the metric.
         :param pred_transform: A transformation function for mapping the model output into a suitable metric input.
-                              If None, defaults to rounding for binary classification and argmax for multiclass.
+                               If None, defaults to rounding for binary classification and argmax for multiclass.
         :param target_transform: A transformation function for mapping the target labels into a suitable metric input.
-                                If None and num_classes is not 2, defaults to argmax.
+                                 If None and num_classes is not 2, defaults to argmax.
 
         """
 
@@ -152,13 +168,39 @@ class SingleHeadMetric(Metric, ABC):
 
 
 class MultyHeadMetric(Metric):
+    """
+    Multi-head metric implementation for evaluating multiple metrics on different subsets of predictions and targets.
 
-    # todo documentation
+    Attributes:
+    - metrics_functions (dict): A dictionary containing metric functions for each head.
+    - metric_weights (list): Optional list of weights for each metric when aggregating results.
+    - aggregate_metrics_function (callable): Optional function for aggregating individual head metrics into a single score.
+
+    Methods:
+    - __init__(self, name: str, metrics_functions: Dict[str, Callable], metric_weights: Optional[List[int]] = None,
+               aggregate_metrics_function: Optional[Callable] = None): Constructor method to initialize the multi-head metric.
+    - __call__(self, predicted_classes: torch.Tensor, target_classes: torch.Tensor, accumulate_statistic: bool = False) -> Dict:
+               Main method to compute the metric values based on the predicted and target classes.
+    - update_state(self, predicted_classes: Dict[str, torch.Tensor], target_classes: Dict[str, torch.Tensor]) -> None:
+               Method to update the state of individual metrics with new predicted and target classes.
+    - reset_state(self) -> None: Method to reset the state of all individual metrics.
+    - get_result(self) -> Dict[str, Float]: Method to retrieve the results of all individual metrics.
+
+    """
 
     def __init__(self, name: str,
                  metrics_functions: Dict[str, Callable],
                  metric_weights: Optional[List[int]] = None,
                  aggregate_metrics_function: Optional[Callable] = None):
+        """
+        Initializes the multi-head metric with the provided metrics functions and optional parameters.
+
+        :param name: The name of the multi-head metric.
+        :param metrics_functions: A dictionary mapping head keys to metric constructor functions.
+        :param metric_weights: Optional list of weights for each metric when aggregating results.
+        :param aggregate_metrics_function: Optional function for aggregating individual head metrics into a single score.
+
+        """
 
         super().__init__(name)
         self.metrics_functions = {}
@@ -174,7 +216,17 @@ class MultyHeadMetric(Metric):
     def __call__(self,
                  predicted_classes: torch.Tensor,
                  target_classes: torch.Tensor,
-                 accumulate_statistic: bool = False):
+                 accumulate_statistic: bool = False) -> Dict:
+        """
+        Computes the metric values based on the predicted and target classes.
+
+        :param predicted_classes: Predicted classes for each head.
+        :param target_classes: Target classes for each head.
+        :param accumulate_statistic: Whether to accumulate statistics over multiple calls.
+
+        :return: Dictionary containing the metric values for each head.
+
+        """
 
         results = {}
 
@@ -192,17 +244,36 @@ class MultyHeadMetric(Metric):
 
     def update_state(self,
                      predicted_classes: Dict[str, torch.Tensor],
-                     target_classes: Dict[str, torch.Tensor]):
+                     target_classes: Dict[str, torch.Tensor]) -> None:
+        """
+        Updates the state of individual metrics with new predicted and target classes.
+
+        :param predicted_classes: Dictionary containing predicted classes for each head.
+        :param target_classes: Dictionary containing target classes for each head.
+
+        """
 
         for head_key, metric in self.metrics_functions:
             metric.update_state(predicted_classes=predicted_classes[head_key],
                                 target_classes=target_classes[head_key])
 
     def reset_state(self) -> None:
+        """
+        Resets the state of all individual metrics.
+
+        """
+
         for _, metric in self.metrics_functions:
             metric.reset_state()
 
     def get_result(self) -> Dict[str, Float]:
+        """
+        Retrieves the results of all individual metrics.
+
+        :return: Dictionary containing the results of all individual metrics.
+
+        """
+
         results = {}
         for head_key, metric in self.metrics_functions:
             results[head_key] = metric.get_result()

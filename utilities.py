@@ -1,11 +1,14 @@
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 
 import os
+from IPython.core.display_functions import display
 
 import matplotlib.pyplot as plt
-import numpy as np
+from wordcloud import WordCloud
+
 import pandas as pd
-from IPython.core.display_functions import display
+import numpy as np
+
 from transformers import BertModel, BertTokenizer
 
 
@@ -17,6 +20,43 @@ def replace_nan_with_zero(lst: List) -> List:
     :return: the list with all the NaNs converted to zero
     """
     return [0.0 if np.isnan(x) else x for x in lst if np.isscalar(x)]
+
+
+def create_wordcloud(df: pd.DataFrame, my_class_index: str = 'WORD', f_sizes: tuple[int, int] = (10, 5)) -> None:
+    """
+    Generates and displays a word cloud based on the specified DataFrame and column.
+
+    :param df: The input DataFrame containing text data.
+    :param my_class_index: The column name in the DataFrame that contains the text data.
+      Defaults to 'WORD'.
+    :param f_sizes: A tuple representing the size of the generated plot.
+
+    :return: This function displays the generated word cloud using Matplotlib.
+
+    Example:
+    ```python
+    import pandas as pd
+    from my_wordcloud_module import create_wordcloud
+
+    # Assuming 'df' is a DataFrame with a column named 'WORD' containing text data
+    create_wordcloud(df, my_class_index='WORD', f_sizes=(12, 6))
+    ```
+
+    Note:
+    - Ensure that the 'wordcloud' and 'matplotlib.pyplot' libraries are installed.
+    - You can install them using the following:
+      ```
+      pip install wordcloud
+      pip install matplotlib
+      ```
+    """
+    text = " ".join(df[my_class_index].sum())
+    wordcloud = WordCloud(width=800, height=400, background_color='white').generate(text)
+
+    plt.figure(figsize=f_sizes)
+    plt.imshow(wordcloud)
+    plt.axis("off")
+    plt.show()
 
 
 def split_dataset(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -76,14 +116,17 @@ def plot_emotion_distribution(train_df: pd.DataFrame, val_df: pd.DataFrame, test
     plt.show()
 
 
-def display_utterance(dataframe: pd.DataFrame, utterance_id: str | int) -> None:
+def display_dialogue(dataframe: pd.DataFrame, utterance_id: str | int) -> None:
     """
     Display the data relate to a specific utterance id
 
     :param dataframe: A pandas dataframe that contain the data
     :param utterance_id: Utterance id related to the speach that you want to show
+
     :return: None
+
     """
+
     table_data = []
 
     df_portion = dataframe.loc[utterance_id] if type(utterance_id) is str else dataframe.iloc[utterance_id]
@@ -96,7 +139,7 @@ def display_utterance(dataframe: pd.DataFrame, utterance_id: str | int) -> None:
     if type(utterance_id) is str:
         print(utterance_id.replace('_', ' ').capitalize())
     else:
-        print('Utterance_' + utterance_id)
+        print('Utterance_' + str(utterance_id))
     display(new_df)
     print()
 
@@ -124,6 +167,52 @@ def produce_speaker_emotion_distribution(dataframe) -> pd.DataFrame:
     tpm_df = tmp_df.pivot_table(index='speakers', columns='emotions', aggfunc='size', fill_value=0)
 
     return tpm_df.sort_values(by=emotions, ascending=[False]*len(emotions))
+
+
+def concat_with_sep(string_list):
+    """
+    Concatenates a list of strings with a separator.
+
+    :params string_list (list): A list of strings to be concatenated.
+
+    :returns: A string obtained by joining all the strings in the input list with the separator '[SEP]'.
+
+    Example:
+        >>> concat_with_sep(['a', 'b', 'c'])
+        'a [SEP] b [SEP] c'
+
+    """
+    return " [SEP] ".join(string_list)
+
+
+def create_classes_weights(list_of_label_index: list[int], list_of_index_to_exclude: Optional[List] = None) -> np.array:
+    """
+    Calculate class weights for a list of classes.
+
+    This function takes a 2D list of classes (e.g., part-of-speech tags)
+    and calculates class weights to use during the training process
+    based on the formula n_samples / (n_classes * np.bincount(y)).
+
+
+    list_of_label_index A list of indexes that represent the classes,
+    list_of_index_to_exclude: List of elements to be dropped from consideration when calculating weights.
+
+    :return: An array of class weights corresponding to the input classes. The weights are inversely
+             proportional to the class occurrences in the input data. The weights for the 'list_of_index_to_exclude' classes
+             to drop are set to 0.
+    """
+
+    if list_of_index_to_exclude is None:
+        list_of_index_to_exclude = []
+
+    occurrences = np.bincount(list_of_label_index)
+    tmp_occurrences = occurrences.copy()
+    tmp_occurrences[list_of_index_to_exclude] = 0
+    class_weights = np.sum(tmp_occurrences) / ((len(occurrences) - len(list_of_index_to_exclude)) * occurrences)
+    class_weights[list_of_index_to_exclude] = 0
+    return class_weights
+
+
 def download_bert_initializers(bert_path: os.path) -> Tuple[BertModel, BertTokenizer]:
     """
     Downloads the BERT model and tokenizer of 'local-bert' and saves them to a specified directory.

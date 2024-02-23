@@ -120,7 +120,8 @@ class Dataset(torch.utils.data.Dataset):
             data_sample = self.__generate_sample(self.data, idx)
         else:
             raise TypeError(
-                "Type inconsistency for the 'data' attribute. Only pd.Dataframe Dict or Dict like are allowed.")
+                "Type inconsistency for the 'data' attribute. "
+                "Only pd.Dataframe Dict or Dict like are allowed.")
 
         if isinstance(self.labels, pd.DataFrame):
             label_sample = self.labels.iloc[idx]
@@ -128,14 +129,15 @@ class Dataset(torch.utils.data.Dataset):
             label_sample = self.__generate_sample(self.labels, idx)
         else:
             raise TypeError(
-                "Type inconsistency for the 'label' attribute. Only pd.Dataframe, Dict or Dict like are allowed.")
+                "Type inconsistency for the 'label' attribute. "
+                "Only pd.Dataframe, Dict or Dict like are allowed.")
 
         if self.sample_preprocess_f is not None:
             data_sample = self.sample_preprocess_f(data_sample)
         if self.label_preprocess_f is not None:
             label_sample = self.label_preprocess_f(label_sample)
 
-        return data_sample, 0  # label_sample
+        return data_sample,  label_sample
 
 
 class DataLoaderStrategy(ABC):

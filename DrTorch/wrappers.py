@@ -132,7 +132,7 @@ class MultyHeadCriterion(AbstractCriterion):
         loss_weights, losses = [], []
         for head_key, current_head_loss in self.loss_functions:
             losses.append(current_head_loss(predicted_labels[head_key], target_labels[head_key]))
-        loss = torch.sum(torch.stack([self.loss_weights * current_loss for weight, current_loss in zip(loss_weights, losses)]), dim=0)
+        loss = torch.sum(torch.stack([weight * current_loss for weight, current_loss in zip(loss_weights, losses)]), dim=0)
         return loss
 
 

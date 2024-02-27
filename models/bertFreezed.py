@@ -1,57 +1,139 @@
-from typing import List, Dict
-
-import torch
-from torch import Tensor
+from typing import Tuple, Dict
 
 from DrTorch.modules import TrainableModule
 
+import torch
+import math
 
-class BertFreezed(TrainableModule):
 
-    def __split_utterances_features(self, features, mask):
-        result = []
-        for sentence, sentence_mask in zip(features, mask):
-            sep_indices = torch.nonzero(sentence_mask, as_tuple=False).squeeze()
-            splits = []
-            for i in range(len(sep_indices) - 1):
-                start, end = sep_indices[i] + 1, sep_indices[i + 1]
-                if start < end:
-                    splits.append(sentence[start:end])
-            result.append(splits)
-        return result
+class BertOne(TrainableModule):
+    """
+       A custom module implementing a fine-tuning mechanism for BERT-based models.
 
-    def __init__(self, bert_model, hidden_size=768, n_emotions=7):
+       This module allows for fine-tuning a pre-trained BERT model for emotion and trigger classification tasks. It includes
+       methods for initializing the module, performing forward passes, and handling input data.
+
+       Args:
+           bert_model (BertModel): Pre-trained BERT model.
+           cls_input_size (int): Size of the input for the classifier.
+           n_emotions (int): Number of classes for emotion classification.
+           n_triggers (int): Number of classes for trigger classification.
+           freeze_bert_weights (bool): If True, freezes the weights of the BERT model.
+
+
+       Example:
+            ```
+              inputs = {
+              'input_ids': torch.tensor([[101, 2054, 2003, 1996, 2017, 102],
+                                         [101, 2074, 2017, 2024, 2035, 102]]),
+              'attention_mask': torch.tensor([[1, 1, 1, 1, 1, 1],
+                                              [1, 1, 1, 1, 1, 1]]),
+              'token_type_ids': torch.tensor([[0, 0, 0, 0, 0, 0],
+                                              [0, 0, 0, 0, 0, 0]])
+              }
+              logits = model.forward(inputs)
+             ```
+
+       """
+
+    def __init__(self, bert_model, cls_input_size, n_emotions, n_triggers, freeze_bert_weights=False):
+        """
+        Initializes the BertFreezed module.
+
+        :params bert_model: Pre-trained BERT model.
+        :params cls_input_size: Size of the input for the classifier.
+        :params n_emotions: Number of classes for emotion classification.
+        :params n_triggers: Number of classes for trigger classification.
+        :params freeze_bert_weights: If it is True the bert weights are freezed.
+
+        :returns:None
+
+        """
+
         super().__init__()
 
         self.bert = bert_model
 
-        # freezing params of bert layer
-        for param in self.bert.parameters():
-            param.requires_grad = False
+        # Freezing BERT layers
+        if freeze_bert_weights:
+            for param in self.bert.parameters():
+                param.requires_grad = False
 
-        self.emotion_classifier = torch.nn.Linear(hidden_size, n_emotions)
-        self.trigger_classifier = torch.nn.Linear(hidden_size, 2)
-        self.softmax = torch.nn.functional.softmax
-        self.sigmoid = torch.nn.functional.sigmoid
+        # Emotion and Trigger classifiers
+        self.emotion_classifier = torch.nn.Linear(in_features=cls_input_size, out_features=n_emotions)
+        self.trigger_classifier = torch.nn.Linear(in_features=cls_input_size, out_features=n_triggers)
 
-    def forward(self, inputs: dict) -> dict[str, Tensor]:
-        separator_mask = inputs.pop('t_sep_index')  # n_token
-        outputs = self.bert(**inputs)  # torch.Size([32, n_max_frasi, x, 768])     se paddi i dialoghi allo stesso numero di frasi x è uguale per tutte le frasi altrimenti e variabile
-        sequence_features = outputs.last_hidden_state  # torch.Size([32, 3, 31, 768])
-        print(sequence_features.shape)
+    def __get_n_chunk(self, input_shape: Tuple[int, int, int]) -> int:
+        """
+        Calculates the number of chunks needed based on the input shape.
 
-        splitted_features = self.__split_utterances_features(features=sequence_features, mask=separator_mask)
+        :params input_shape: Shape of the input tensor.
 
-        print(len(splitted_features))  # lista di list di tensori
+        :returns:  Number of chunks.
 
-        for l in splitted_features:
-            print(len(l))
-            print((l[0].shape))
-            print((l[1].shape))
-            print((l[2].shape))
+        """
 
-        emotion_logits = self.emotion_classifier(splitted_features)  # B, N_frasi, C
+        batch_n, n_sentence, n_token = input_shape
+        x = math.ceil((n_sentence * n_token) / self.bert.config.max_position_embeddings)
+        while n_sentence % x != 0:
+            x += 1
 
-        trigger_logits = self.trigger_classifier(splitted_features)  # B, N_frasi, 1
+        return x
 
-        return {'emotions': self.softmax(emotion_logits), 'triggers': self.sigmoid(trigger_logits)}
+    @staticmethod
+    def __chunk_input(n_chunk, inputs) -> Dict[str, torch.Tensor]:
+        """
+        Chunks input data into multiple parts for processing.
+
+        :params n_chunk: Number of chunks.
+        :params inputs: Dictionary containing input tensors.
+
+        :returns: Chunked input tensors.
+
+        """
+
+        batch_n = inputs['input_ids'].shape[0]
+
+        for key, data in inputs.items():
+            inputs[key] = data.view((batch_n * n_chunk, -1))
+
+        return inputs
+
+    @staticmethod
+    def __reshape(inputs: torch.Tensor, shape: Tuple[int, int, int]) -> torch.Tensor:
+        """
+        Reshapes input tensors to their original shape in order to aggregate the chunks.
+
+        :params inputs: Input tensor to reshape.
+        :params shape: Target shape.
+
+        :returns:  Reshaped input tensor.
+
+        """
+
+        batch_n, n_sentence, n_token = shape
+        return inputs.view((batch_n, n_sentence, -1))
+
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        """
+        Forward pass of the BertFreezed module.
+
+        :params inputs: Dictionary containing input tensors. It should contain the following keys:
+                        - 'input_ids': Tensor of shape (batch_size, sequence_length) containing input IDs.
+                        - 'attention_mask': Tensor of shape (batch_size, sequence_length) containing attention mask.
+                        - 'token_type_ids': Tensor of shape (batch_size, sequence_length) containing token type IDs.
+
+        :returns: Dictionary containing emotion and trigger logits.
+
+        """
+
+        n_chunk = self.__get_n_chunk(inputs['input_ids'].shape)
+        chunked_input = self.__chunk_input(n_chunk, inputs.copy())
+
+        features = self.bert(**chunked_input).last_hidden_state                     # todo indagare last hidden_state
+        reshaped_features = self.__reshape(features, inputs['input_ids'].shape)
+
+        emotion_logits = self.emotion_classifier(reshaped_features)
+        trigger_logits = self.trigger_classifier(reshaped_features)
+
+        return {'emotions': emotion_logits, 'triggers': trigger_logits}

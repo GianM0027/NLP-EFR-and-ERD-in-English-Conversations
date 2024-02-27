@@ -1,4 +1,4 @@
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict
 
 import os
 from IPython.core.display_functions import display
@@ -8,6 +8,7 @@ from wordcloud import WordCloud
 
 import pandas as pd
 import numpy as np
+import torch
 
 from transformers import BertModel, BertTokenizer
 
@@ -17,8 +18,11 @@ def replace_nan_with_zero(lst: List) -> List:
     Takes a list with NaN values and converts them to zero.
 
     :param lst: original list
+
     :return: the list with all the NaNs converted to zero
+
     """
+
     return [0.0 if np.isnan(x) else x for x in lst if np.isscalar(x)]
 
 
@@ -49,7 +53,9 @@ def create_wordcloud(df: pd.DataFrame, my_class_index: str = 'WORD', f_sizes: tu
       pip install wordcloud
       pip install matplotlib
       ```
+
     """
+
     text = " ".join(df[my_class_index].sum())
     wordcloud = WordCloud(width=800, height=400, background_color='white').generate(text)
 
@@ -64,8 +70,11 @@ def split_dataset(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Data
     Given a dataframe, return a (80, 10, 10) random split of its rows in 3 new dataframes
 
     :param df: original dataframe to split
+
     :return: train, validation and test sets (80, 10, 10), in this order.
+
     """
+
     df['index'] = df.index
 
     # Shuffle the dataframe
@@ -94,8 +103,11 @@ def plot_emotion_distribution(train_df: pd.DataFrame, val_df: pd.DataFrame, test
     :param train_df: training set
     :param val_df: validation set
     :param test_df: test set
+
     :return: None
+
     """
+
     plt.figure(figsize=(18, 6))
     plt.suptitle("Emotions occurrence in the datasets")
 
@@ -107,6 +119,44 @@ def plot_emotion_distribution(train_df: pd.DataFrame, val_df: pd.DataFrame, test
         flatten_emotions = [item for sublist in dataset["emotions"] for item in sublist]
         emotion_values, emotion_counts = np.unique(flatten_emotions, return_counts=True)
         plt.bar(emotion_values, emotion_counts)
+        plt.title(titles[i])
+        plt.grid()
+        plt.xticks(rotation=45)  # Rotate labels to avoid overlap
+        plt.ylabel('Counts')
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_triggers_per_emotion(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.DataFrame) -> None:
+    """
+    For each emotion, plot how many triggers it activates
+
+    :param train_df: training set
+    :param val_df: validation set
+    :param test_df: test set
+
+    :return: None
+
+    """
+
+    plt.figure(figsize=(18, 6))
+    plt.suptitle("Emotions related to trigger's activation")
+
+    datasets = [train_df, val_df, test_df]
+    titles = ['Training Set', 'Validation Set', 'Test Set']
+
+    for i, dataset in enumerate(datasets):
+        plt.subplot(1, 3, i + 1)
+        flatten_emotions = [item for sublist in dataset["emotions"] for item in sublist]
+        flatten_triggers = [item for sublist in dataset["triggers"] for item in sublist]
+
+        count_dict = {emotion: 0 for emotion in np.unique(flatten_emotions)}
+        for idx in range(len(flatten_triggers)):
+            if flatten_triggers[idx] == 1:
+                count_dict[flatten_emotions[idx]] += 1
+
+        plt.bar(count_dict.keys(), count_dict.values())
         plt.title(titles[i])
         plt.grid()
         plt.xticks(rotation=45)  # Rotate labels to avoid overlap
@@ -154,9 +204,11 @@ def produce_speaker_emotion_distribution(dataframe) -> pd.DataFrame:
      :param dataframe: A pandas DataFrame containing the data. It should have columns 'speakers' and 'emotions', where
                        'speakers' contain lists of speaker identifiers and 'emotions' contain lists of emotions associated
                        with each speaker.
+
      :return: A pandas DataFrame representing the emotion distribution for each speaker.
               The DataFrame has speakers as rows and emotions as columns. Each cell represents the count of occurrences
               of an emotion for a particular speaker. If an emotion didn't occur for a speaker, the cell value will be 0.
+
      """
 
     tmp_dict = {'speakers': [element for current_list in dataframe['speakers'] for element in current_list],
@@ -166,23 +218,7 @@ def produce_speaker_emotion_distribution(dataframe) -> pd.DataFrame:
     emotions = tmp_df['emotions'].unique().tolist()
     tpm_df = tmp_df.pivot_table(index='speakers', columns='emotions', aggfunc='size', fill_value=0)
 
-    return tpm_df.sort_values(by=emotions, ascending=[False]*len(emotions))
-
-
-def concat_with_sep(string_list):
-    """
-    Concatenates a list of strings with a separator.
-
-    :params string_list (list): A list of strings to be concatenated.
-
-    :returns: A string obtained by joining all the strings in the input list with the separator '[SEP]'.
-
-    Example:
-        >>> concat_with_sep(['a', 'b', 'c'])
-        'a [SEP] b [SEP] c'
-
-    """
-    return " [SEP] ".join(string_list)
+    return tpm_df.sort_values(by=emotions, ascending=[False] * len(emotions))
 
 
 def create_classes_weights(list_of_label_index: list[int], list_of_index_to_exclude: Optional[List] = None) -> np.array:
@@ -200,6 +236,7 @@ def create_classes_weights(list_of_label_index: list[int], list_of_index_to_excl
     :return: An array of class weights corresponding to the input classes. The weights are inversely
              proportional to the class occurrences in the input data. The weights for the 'list_of_index_to_exclude' classes
              to drop are set to 0.
+
     """
 
     if list_of_index_to_exclude is None:
@@ -220,8 +257,11 @@ def download_bert_initializers(bert_path: os.path) -> Tuple[BertModel, BertToken
     and saves them in the specified directory for future utilization.
 
     :param bert_path: The directory path where the BERT model and tokenizer should be saved.
+
     :return: a tuple containing the downloaded BertModel and BertTokenizer instances.
+
     """
+
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     model = BertModel.from_pretrained('bert-base-uncased')
 
@@ -240,9 +280,118 @@ def retrieve_bert_initializers(bert_path: os.path) -> Tuple[BertModel, BertToken
     and returns them for future use.
 
     :param bert_path: The directory path where the BERT model and tokenizer should be retrieved.
+
     :return: a tuple containing the loaded BertModel and BertTokenizer instances.
+
     """
+
     tokenizer = BertTokenizer.from_pretrained(bert_path)
     model = BertModel.from_pretrained(bert_path)
 
     return model, tokenizer
+
+
+def find_max_encoded_utterance(tokenizer: BertTokenizer, data: pd.Series) -> int:
+    """
+    Find the maximum length of encoded utterances in the given data.
+
+    :param tokenizer: The tokenizer object used for encoding.
+
+    :param data: A  pd.Series of utterances.
+
+    :return: The maximum length of encoded utterances.
+    """
+
+    tokenized_batch = tokenizer.batch_encode_plus(data.sum(),
+                                                  padding=True,
+                                                  return_tensors='pt')
+    return tokenized_batch["input_ids"].shape[1]
+
+
+def pad_utterances(sequences: List[torch.Tensor], pad_token_id):
+    """
+    Pad a list of sequences with a given pad token ID.
+
+    :param sequences: A list of PyTorch tensors representing sequences.
+    :param pad_token_id: The ID of the padding token.
+
+    :return: A PyTorch tensor containing padded sequences.
+
+    """
+
+    max_list_length = max(seq.size(0) for seq in sequences)
+    padded_sequences = []
+    for seq in sequences:
+        padding_needed = max_list_length - seq.size(0)
+        if padding_needed > 0:
+            padding_tensor = torch.full((padding_needed, seq.size(1)), pad_token_id)
+            padded_seq = torch.cat([seq, padding_tensor], dim=0)
+        else:
+            padded_seq = seq
+        padded_sequences.append(padded_seq)
+    return torch.stack(padded_sequences)
+
+
+def tokenize_data(data: pd.Series) -> Dict[str, torch.Tensor]:
+    """
+    Tokenize a pandas Series of text data.
+
+    :params data: A pandas Series containing text data.
+
+    :returns: A dictionary containing tokenized input, attention masks, and token type IDs.
+
+    """
+
+    tokenizer = BertTokenizer.from_pretrained("local-bert")
+
+    max_token_length = find_max_encoded_utterance(tokenizer, data)
+
+    input_ids_list = []
+    attention_masks_list = []
+    token_type_ids_list = []
+
+    for text_list in data:
+        tokenized_utterances = tokenizer.batch_encode_plus(batch_text_or_text_pairs=text_list,
+                                                           padding="max_length",
+                                                           max_length=max_token_length,
+                                                           return_tensors='pt')
+
+        input_ids_list.append(tokenized_utterances['input_ids'])
+        attention_masks_list.append(tokenized_utterances['attention_mask'])
+        token_type_ids_list.append(tokenized_utterances['token_type_ids'])
+
+    padded_input_ids = pad_utterances(input_ids_list, tokenizer.pad_token_id)
+    padded_attention_masks = pad_utterances(attention_masks_list, 0)
+    padded_token_type_ids = pad_utterances(token_type_ids_list, 0)
+
+    output = {'input_ids': padded_input_ids,
+              'attention_mask': padded_attention_masks,
+              'token_type_ids': padded_token_type_ids
+              }
+
+    return output
+
+
+def preprocess_labels(labels: pd.DataFrame) -> Dict[str, torch.Tensor]:
+    """
+    Preprocesses emotion and trigger labels.
+
+    :param labels: A Dataframe containing emotion and trigger labels.
+
+    :return: A dictionary containing torch tensors for encoded emotions and triggers.
+
+    """
+
+    emotions, triggers = labels['emotions'], labels['triggers']
+    max_length = max(emotions.apply(len).max(), triggers.apply(len).max())
+
+    emotions_padded = emotions.apply(lambda em_list: em_list + ['pad_emotion'] * (max_length - len(em_list)))
+    triggers_padded = triggers.apply(lambda t_list: t_list + [2] * (max_length - len(t_list)))
+
+    encoded_emotions_tensor = torch.tensor(pd.get_dummies(emotions_padded.sum()).values.astype(float))
+    encoded_triggers_tensor = torch.tensor(pd.get_dummies(triggers_padded.sum()).values.astype(float))
+
+    encoded_emotions_tensor = encoded_emotions_tensor.view(-1, max_length, 8)
+    encoded_triggers_tensor = encoded_triggers_tensor.view(-1, max_length, 3)
+
+    return {'emotions': encoded_emotions_tensor, 'triggers': encoded_triggers_tensor}

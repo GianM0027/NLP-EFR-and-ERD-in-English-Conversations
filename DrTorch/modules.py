@@ -19,7 +19,7 @@ from typing import Union, Any, Dict, List, Tuple, Callable, Optional
 import wandb
 
 from .wrappers import Criterion, OptimizerWrapper, MultyHeadCriterion
-from .metrics import Metric, MultyHeadMetric
+from .metrics import Metric, MultyHeadMetric, SingleHeadMetric
 from .callbacks import EarlyStopper
 
 import os
@@ -329,13 +329,12 @@ class TrainableModule(DrTorchModule):
             elif isinstance(metric, MultyHeadMetric):
                 train_history[metric.name] = []
                 val_history[metric.name] = []
-                for head_metric in metric.metrics_functions.values:
+                for head_metric in metric.metrics_functions.values():
                     train_history[head_metric.name] = []
                     val_history[head_metric.name] = []
             else:
-                raise TypeError('Inconsistent type for metric parameter.'
+                raise TypeError('Inconsistent type for metric parameter. '
                                 'Only Metric or MultyHeadMetric object allowed.')
-
 
         iterations_per_epoch = len(train_loader)
 
@@ -361,7 +360,7 @@ class TrainableModule(DrTorchModule):
                     metrics_value = {}
 
                     for metric in metrics:
-                        if isinstance(metric, Metric):
+                        if isinstance(metric, SingleHeadMetric):
                             metrics_value[metric.name] = metric(outputs, labels)
                         elif isinstance(metric, MultyHeadMetric):
                             metric_results = metric(outputs, labels)
@@ -375,7 +374,7 @@ class TrainableModule(DrTorchModule):
                                 out_str += f" - {metric.name}: {metrics_value[metric.name]}"
                             elif isinstance(metric, MultyHeadMetric):
                                 for head_metric in enumerate(metric.metrics_functions.values()):
-                                    out_str += f" - {head_metric.name}: {metrics_value[head_metric.name]}"
+                                    out_str += f" - {head_metric.name}: {metrics_value[head_metric.name]}"      # fixme
 
                         sys.stdout.write(out_str)
                         sys.stdout.flush()

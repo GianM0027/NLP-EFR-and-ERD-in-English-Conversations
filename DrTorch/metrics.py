@@ -205,7 +205,7 @@ class MultyHeadMetric(Metric):
         """
 
         super().__init__(name)
-        self.metrics_functions = {}
+        self.metrics_functions = metrics_functions
         self.metric_weights = metric_weights
 
         """
@@ -218,8 +218,8 @@ class MultyHeadMetric(Metric):
             self.aggregate_metrics_function = aggregate_metrics_function
 
     def __call__(self,
-                 predicted_classes: torch.Tensor,
-                 target_classes: torch.Tensor,
+                 predicted_classes: Dict[str, torch.Tensor],
+                 target_classes: Dict[str, torch.Tensor],
                  accumulate_statistic: bool = False) -> Dict:
         """
         Computes the metric values based on the predicted and target classes.
@@ -234,16 +234,17 @@ class MultyHeadMetric(Metric):
 
         results = {}
 
-        for head_key, metric in self.metrics_functions:
+        for head_key, metric in self.metrics_functions.items():
             results[head_key] = metric(predicted_classes=predicted_classes[head_key],
                                        target_classes=target_classes[head_key])
 
         if self.aggregate_metrics_function is not None:
             if self.metric_weights is not None:
-                results[self.name] = self.aggregate_metrics_function(self.metric_weights, results.values())
+                weighted_metric_results = torch.tensor(self.metric_weights) * torch.tensor(list(results.values()))
+                results[self.name] = self.aggregate_metrics_function(weighted_metric_results)
             else:
-                results[self.name] = self.aggregate_metrics_function(results.values())
-
+                results[self.name] = self.aggregate_metrics_function(torch.tensor(list(results.values())))
+        #todo printare metriche singole teste
         return results
 
     def update_state(self,
@@ -320,6 +321,7 @@ class F1_Score(SingleHeadMetric):
     """
 
     def __init__(self,
+                 name: str = 'default_name',
                  mode: str = 'macro',
                  pos_label: int = 1,
                  classes_to_exclude: Optional[List[int] | np.ndarray[int]] = None,
@@ -332,7 +334,7 @@ class F1_Score(SingleHeadMetric):
 
         """
 
-        super().__init__(**parent_params)
+        super().__init__(name=name, **parent_params)
 
         self.mode = mode
         self.pos_label = pos_label

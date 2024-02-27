@@ -1,5 +1,7 @@
 from typing import Tuple, Dict
 
+import numpy as np
+
 from DrTorch.modules import TrainableModule
 
 import torch
@@ -50,9 +52,10 @@ class BertOne(TrainableModule):
 
         """
 
-        super(BertOne, self).__init__()
+        super().__init__()
 
         self.bert = bert_model
+
 
         # Freezing BERT layers
         if freeze_bert_weights:

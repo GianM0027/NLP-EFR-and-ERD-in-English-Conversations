@@ -116,8 +116,8 @@ class MultyHeadCriterion(AbstractCriterion):
         self.loss_weights = loss_weights
 
     def __call__(self,
-                 predicted_labels: torch.Tensor | Any,
-                 target_labels: torch.Tensor) -> torch.Tensor:
+                 predicted_labels: Dict[str, torch.Tensor],
+                 target_labels: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
         Compute the loss between predicted and target labels as a torch.Tensor instantiated on the device
         where the input tensor are located.
@@ -129,10 +129,13 @@ class MultyHeadCriterion(AbstractCriterion):
 
         """
 
-        loss_weights, losses = [], []
-        for head_key, current_head_loss in self.loss_functions:
+        losses = []
+        for head_key, current_head_loss in self.loss_functions.items():
             losses.append(current_head_loss(predicted_labels[head_key], target_labels[head_key]))
-        loss = torch.sum(torch.stack([weight * current_loss for weight, current_loss in zip(loss_weights, losses)]), dim=0)
+
+        losses = [weight * current_loss for weight, current_loss in zip(self.loss_weights, losses)]
+        loss = torch.cat(losses, dim=1)
+        #loss = torch.sum(torch.stack([weight * current_loss for weight, current_loss in zip(self.loss_weights, losses)]), dim=1) #errore
         return loss
 
 

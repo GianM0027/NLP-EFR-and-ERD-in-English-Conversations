@@ -74,11 +74,11 @@ class BertOne(TrainableModule):
         """
 
         batch_n, n_sentence, n_token = input_shape
-        x = math.ceil((n_sentence * n_token) / self.bert.config.max_position_embeddings)
-        while n_sentence % x != 0:
-            x += 1
-
-        return x
+        for chunks in range(1, n_sentence):
+            if n_sentence % chunks == 0 and (n_sentence * n_token) / chunks <= self.bert.config.max_position_embeddings:
+                print(chunks)
+                return chunks
+        return n_sentence
 
     @staticmethod
     def __chunk_input(n_chunk, inputs) -> Dict[str, torch.Tensor]:

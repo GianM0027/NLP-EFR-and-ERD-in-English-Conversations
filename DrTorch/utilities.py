@@ -270,8 +270,8 @@ class DataLoaderFromPipelineStrategy(DataLoaderStrategy):
     """
 
     def create(self,
-               data: pd.DataFrame,
-               labels: pd.DataFrame,
+               data: pd.DataFrame | pd.Series,
+               labels: pd.DataFrame | pd.Series,
                shuffle: bool,
                data_preprocess_f: Optional[Callable] = None,
                labels_preprocess_f: Optional[Callable] = None,

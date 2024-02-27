@@ -333,8 +333,9 @@ class TrainableModule(DrTorchModule):
                     train_history[head_metric.name] = []
                     val_history[head_metric.name] = []
             else:
-                raise TypeError('Inconsistent type for metric parameter. \\'
+                raise TypeError('Inconsistent type for metric parameter.'
                                 'Only Metric or MultyHeadMetric object allowed.')
+
 
         iterations_per_epoch = len(train_loader)
 
@@ -349,7 +350,7 @@ class TrainableModule(DrTorchModule):
                 self.train()
 
                 for iteration, (inputs, labels) in enumerate(train_loader):
-                    inputs, labels = self.__to_device(inputs, self.device), labels.to(self.device)
+                    inputs, labels = self.__to_device(inputs, self.device), self.__to_device(labels, self.device)
                     optimizer.zero_grad()
                     outputs = self(inputs)
                     loss = criterion(outputs, labels)

@@ -385,7 +385,7 @@ def preprocess_labels(labels: pd.DataFrame) -> Dict[str, torch.Tensor]:
     emotions, triggers = labels['emotions'], labels['triggers']
     max_length = max(emotions.apply(len).max(), triggers.apply(len).max())
 
-    emotions_padded = emotions.apply(lambda em_list: em_list + ['pad_emotion'] * (max_length - len(em_list)))
+    emotions_padded = emotions.apply(lambda em_list: em_list + ['z_emotion'] * (max_length - len(em_list)))
     triggers_padded = triggers.apply(lambda t_list: t_list + [2] * (max_length - len(t_list)))
 
     encoded_emotions_tensor = torch.tensor(pd.get_dummies(emotions_padded.sum()).values.astype(float))

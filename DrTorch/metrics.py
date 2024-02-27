@@ -134,7 +134,8 @@ class SingleHeadMetric(Metric, ABC):
         Initialize a SingleHeadMetric object.
     """
 
-    def __init__(self, num_classes: int,
+    def __init__(self,
+                 num_classes: int,
                  name: str = "default_name",
                  pred_transform: Optional[Callable] = None,
                  target_transform: Optional[Callable] = None):
@@ -188,7 +189,8 @@ class MultyHeadMetric(Metric):
 
     """
 
-    def __init__(self, name: str,
+    def __init__(self,
+                 name: str,
                  metrics_functions: Dict[str, Callable],
                  metric_weights: Optional[List[int]] = None,
                  aggregate_metrics_function: Optional[Callable] = None):
@@ -206,9 +208,11 @@ class MultyHeadMetric(Metric):
         self.metrics_functions = {}
         self.metric_weights = metric_weights
 
+        """
         for head_key, metric_params in metrics_functions:
             metric_constructor = metric_params.pop('metric_constructor')
             self.metrics_functions[head_key] = metric_constructor(**metric_params)
+        """
 
         if aggregate_metrics_function is not None:
             self.aggregate_metrics_function = aggregate_metrics_function
@@ -351,6 +355,7 @@ class F1_Score(SingleHeadMetric):
         :param accumulate_statistic: Whether to accumulate internal statistics.
 
         :return: Computed F1 Score.
+
         """
 
         tps, fps, fns = self.update_state(predicted_classes, target_classes)

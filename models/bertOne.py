@@ -50,7 +50,7 @@ class BertOne(TrainableModule):
 
         """
 
-        super().__init__()
+        super(BertOne, self).__init__()
 
         self.bert = bert_model
 
@@ -76,7 +76,6 @@ class BertOne(TrainableModule):
         batch_n, n_sentence, n_token = input_shape
         for chunks in range(1, n_sentence):
             if n_sentence % chunks == 0 and (n_sentence * n_token) / chunks <= self.bert.config.max_position_embeddings:
-                print(chunks)
                 return chunks
         return n_sentence
 

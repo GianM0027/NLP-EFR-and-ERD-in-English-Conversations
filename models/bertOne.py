@@ -56,8 +56,6 @@ class BertOne(TrainableModule):
 
         self.bert = bert_model
 
-
-        # Freezing BERT layers
         if freeze_bert_weights:
             for param in self.bert.parameters():
                 param.requires_grad = False
@@ -132,7 +130,7 @@ class BertOne(TrainableModule):
         n_chunk = self.__get_n_chunk(inputs['input_ids'].shape)
         chunked_input = self.__chunk_input(n_chunk, inputs.copy())
 
-        features = self.bert(**chunked_input).last_hidden_state                     # todo indagare last hidden_state
+        features = self.bert(**chunked_input).last_hidden_state
         reshaped_features = self.__reshape(features, inputs['input_ids'].shape)
 
         emotion_logits = self.emotion_classifier(reshaped_features)

@@ -367,7 +367,6 @@ def plot_history(history: Dict[str, List[float]], patience: int = None) -> None:
         fig, axes = plt.subplots(num_metrics, 1, figsize=(10, 5 * num_metrics))
 
         for i, metric in enumerate(metrics):
-            print(metric)
             epochs = range(1, len(history['train'][metric]) + 1)
             axes[i].plot(epochs, history['train'][metric], label='Training')
             axes[i].plot(epochs, history['val'][metric], label='Validation')

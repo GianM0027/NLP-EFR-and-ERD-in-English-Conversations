@@ -15,7 +15,6 @@
 
 """
 
-
 from typing import Optional, Callable, List, Any, Dict, Tuple
 from sympy import Float
 
@@ -118,7 +117,6 @@ class Metric(ABC):
 
 
 class SingleHeadMetric(Metric, ABC):
-
     """
     Abstract base class for implementing evaluation metrics for single-head models.
 
@@ -153,7 +151,6 @@ class SingleHeadMetric(Metric, ABC):
 
         super().__init__(name)
         self.num_classes = num_classes
-        self.name = name
 
         if pred_transform is None:
             if self.num_classes == 2:
@@ -187,11 +184,12 @@ class MultyHeadMetric(Metric):
     - reset_state(self) -> None: Method to reset the state of all individual metrics.
     - get_result(self) -> Dict[str, Float]: Method to retrieve the results of all individual metrics.
 
+    TODO ADD EXEMPLE
     """
 
     def __init__(self,
                  name: str,
-                 metrics_functions: Dict[str, Callable],
+                 metrics_functions: Dict[str, SingleHeadMetric],
                  metric_weights: Optional[List[int]] = None,
                  aggregate_metrics_function: Optional[Callable] = None):
         """
@@ -208,12 +206,6 @@ class MultyHeadMetric(Metric):
         self.metrics_functions = metrics_functions
         self.metric_weights = metric_weights
 
-        """
-        for head_key, metric_params in metrics_functions:
-            metric_constructor = metric_params.pop('metric_constructor')
-            self.metrics_functions[head_key] = metric_constructor(**metric_params)
-        """
-
         if aggregate_metrics_function is not None:
             self.aggregate_metrics_function = aggregate_metrics_function
 
@@ -228,7 +220,8 @@ class MultyHeadMetric(Metric):
         :param target_classes: Target classes for each head.
         :param accumulate_statistic: Whether to accumulate statistics over multiple calls.
 
-        :return: Dictionary containing the metric values for each head.
+        :return: Dictionary containing the metric values for each head, and the aggregated metric value if
+                 an aggregate_metrics_function is specified.
 
         """
 
@@ -238,14 +231,7 @@ class MultyHeadMetric(Metric):
             results[head_key] = metric(predicted_classes=predicted_classes[head_key],
                                        target_classes=target_classes[head_key])
 
-        if self.aggregate_metrics_function is not None:
-            if self.metric_weights is not None:
-                weighted_metric_results = torch.tensor(self.metric_weights) * torch.tensor(list(results.values()))
-                results[self.name] = self.aggregate_metrics_function(weighted_metric_results)
-            else:
-                results[self.name] = self.aggregate_metrics_function(torch.tensor(list(results.values())))
-        #todo printare metriche singole teste
-        return results
+        return self.__organize_output(results)
 
     def update_state(self,
                      predicted_classes: Dict[str, torch.Tensor],
@@ -258,7 +244,7 @@ class MultyHeadMetric(Metric):
 
         """
 
-        for head_key, metric in self.metrics_functions:
+        for head_key, metric in self.metrics_functions.items():
             metric.update_state(predicted_classes=predicted_classes[head_key],
                                 target_classes=target_classes[head_key])
 
@@ -268,25 +254,44 @@ class MultyHeadMetric(Metric):
 
         """
 
-        for _, metric in self.metrics_functions:
+        for metric in self.metrics_functions.values():
             metric.reset_state()
 
     def get_result(self) -> Dict[str, Float]:
         """
         Retrieves the results of all individual metrics.
 
-        :return: Dictionary containing the results of all individual metrics.
+        :return: Dictionary containing the metric values for each head, and the aggregated metric value if
+                 an aggregate_metrics_function is specified.
 
         """
 
         results = {}
-        for head_key, metric in self.metrics_functions:
+
+        for head_key, metric in self.metrics_functions.items():
             results[head_key] = metric.get_result()
+
+        return self.__organize_output(results)
+
+    def __organize_output(self, results: Dict[str, float]) -> Dict:
+        """
+        Organizes the output of the metric functions.
+
+        :param results: Dictionary containing the metric values for each head.
+
+        :return: Dictionary containing the metric values for each head, and the aggregated metric value if
+                 an aggregate_metrics_function is specified.
+
+        """
         if self.aggregate_metrics_function is not None:
             if self.metric_weights is not None:
-                results[self.name] = self.aggregate_metrics_function(self.metric_weights, results.values())
+                weighted_metric_results = torch.tensor(self.metric_weights) * torch.tensor(list(results.values()))
+                results[self.name] = self.aggregate_metrics_function(weighted_metric_results).items()
             else:
-                results[self.name] = self.aggregate_metrics_function(results.values())
+                results[self.name] = self.aggregate_metrics_function(torch.tensor(list(results.values()))).items()
+
+        results = {self.metrics_functions[key].name if key in self.metrics_functions.keys()
+                   else key: results[key] for key in results.keys()}
 
         return results
 
@@ -324,17 +329,24 @@ class F1_Score(SingleHeadMetric):
                  name: str = 'default_name',
                  mode: str = 'macro',
                  pos_label: int = 1,
+                 num_classes: int = None,
                  classes_to_exclude: Optional[List[int] | np.ndarray[int]] = None,
+
                  **parent_params: Dict[str, Any]):
         """
+        Initialize the F1 Score metric.
 
+        :param name: Name of the metric.
         :param mode: Computation mode for F1 Score ('none', 'macro', 'micro').
         :param pos_label: Used when mode='binary' to select the class you want to consider.
-        :param classes_to_exclude: Classes to exclude from the computation.
+        :param num_classes: Number of classes. Required for computing F1 Score.
+        :param classes_to_exclude: Classes to exclude from the computation. Defaults to None.
+
+        **parent_params: Additional parameters to be passed to the parent class.
 
         """
 
-        super().__init__(name=name, **parent_params)
+        super().__init__(name=name, num_classes=num_classes, **parent_params)
 
         self.mode = mode
         self.pos_label = pos_label
@@ -453,234 +465,5 @@ class F1_Score(SingleHeadMetric):
             result = 2 * np.sum(self.tps[self.classes_to_consider]) / np.sum(denominators[self.classes_to_consider])
         else:
             raise ValueError("Undefined mode specified, available modes are 'none', 'binary', 'macro' and 'micro'")
-
-        return result
-
-
-class F1_Score_Multi_Labels:
-    """
-        F1_Score_Multi_Labels class implements the F1 Score metric for multi-label classification tasks.
-
-        Args:
-            name (str): Name of the metric.
-            num_classes (int): Number of classes in the classification task.
-            num_labels (int): Number of labels associated with each sample.
-            mode (str, optional): Computation mode for F1 Score ('none', 'macro', 'binary','micro'). Defaults to 'macro'.
-            pos_label (int): Used when mode='binary' to select the class you want to consider.
-            compute_mean (bool, optional): Whether to compute the mean of F1 Scores. Defaults to True.
-            classes_to_exclude (list or np.ndarray, optional): Classes to exclude from the computation.
-
-        Attributes:
-            name (str): Name of the metric.
-            mode (str): Computation mode for F1 Score ('none', 'macro', 'micro').
-            num_classes (int): Number of classes in the classification task.
-            classes_to_exclude (list or np.ndarray): Classes to exclude from the computation.
-            classes_to_consider (np.ndarray): Classes to consider based on exclusion.
-            num_labels (int): Number of labels associated with each sample.
-            compute_mean (bool): Whether to compute the mean of F1 Scores.
-            tps (np.ndarray): True positives count.
-            fps (np.ndarray): False positives count.
-            fns (np.ndarray): False negatives count.
-
-        Methods:
-            update_state(predicted_classes: torch.Tensor, target_classes: torch.Tensor) -> tuple[np.array, np.array, np.array]:
-                Update the internal state of the F1 Score metric.
-            get_result() -> float:
-                Compute and return the final F1 Score result.
-            reset_state() -> None:
-                Reset the internal state of the F1 Score metric.
-            __str__() -> str:
-                Get the name of the metric as a string.
-            set_mode(compute_mean: bool) -> None:
-                Set the computation mode for mean.
-            __call__(predicted_classes: torch.Tensor, target_classes: torch.Tensor, accumulate_statistic: bool = False) -> float:
-                Update the state, compute F1 Scores, and return the result.
-
-        Raises:
-            ValueError: If an undefined mode is specified.
-
-        Notes:
-            This class is designed to works if each label has the same number of classes
-
-        Example:
-            ```python
-            f1_metric = F1_Score_Multi_Labels(name='F1_Score', num_classes=10, num_labels=5)
-            result = f1_metric(predicted_classes, target_classes)
-            ```
-
-        """
-
-    def __init__(self,
-                 name: str,
-                 num_classes: int,
-                 num_labels: int,
-                 mode: str = 'macro',
-                 pos_label: int = 1,
-                 compute_mean: bool = True,
-                 classes_to_exclude: Optional[List[int] | np.ndarray[int]] = None):
-        """
-
-        :param name: Name of the metric.
-        :param num_classes:  Number of classes in the classification task.
-        :param num_labels: Number of labels.
-        :param mode: Computation mode for F1 Score ('none', 'macro', 'micro', 'binary').
-        :param pos_label: Used when mode='binary' to select the class you want to consider.
-        :param compute_mean: flag to compute the mean over the different labels.
-        :param classes_to_exclude: Classes to exclude from the computation.
-
-        """
-
-        self.name = name
-        self.mode = mode
-        self.pos_label = pos_label
-        self.num_classes = num_classes
-        self.classes_to_exclude = classes_to_exclude if classes_to_exclude else []
-        self.classes_to_consider = np.arange(num_classes)[~np.isin(np.arange(num_classes), self.classes_to_exclude)]
-        self.num_labels = num_labels
-        self.compute_mean = compute_mean
-
-        self.tps = np.zeros((self.num_labels, self.num_classes))
-        self.fps = np.zeros((self.num_labels, self.num_classes))
-        self.fns = np.zeros((self.num_labels, self.num_classes))
-
-    def update_state(self,
-                     predicted_classes: torch.Tensor,
-                     target_classes: torch.Tensor) -> Tuple[np.array, np.array, np.array]:
-        """
-        Update the internal state of the F1 Score metric.
-
-        :param predicted_classes: Predicted classes.
-        :param target_classes: Target (ground truth) classes.
-
-        :return: Tuple containing true positives, false positives, and false negatives.
-
-        """
-
-        tps = np.zeros((self.num_labels, self.num_classes))
-        fps = np.zeros((self.num_labels, self.num_classes))
-        fns = np.zeros((self.num_labels, self.num_classes))
-
-        for i in range(self.num_labels):
-            current_pred_class = predicted_classes[:, i].cpu().detach().numpy().astype(int)
-            current_target_classes = target_classes[:, i].cpu().detach().numpy().astype(int)
-
-            mask = ~np.isin(current_target_classes, self.classes_to_exclude)
-
-            current_pred_class = current_pred_class[mask]
-            current_target_classes = current_target_classes[mask]
-
-            confusion_matrix = np.zeros((self.num_classes, self.num_classes))
-            for predicted_id, target_id in zip(current_pred_class, current_target_classes):
-                confusion_matrix[predicted_id, target_id] += 1
-
-            tps[i, :] = np.diag(confusion_matrix)
-            fps[i, :] = np.sum(confusion_matrix, axis=1) - tps[i]
-            fns[i, :] = np.sum(confusion_matrix, axis=0) - tps[i]
-
-        self.tps += tps
-        self.fps += fps
-        self.fns += fns
-
-        return tps, fps, fns
-
-    def get_result(self) -> float:
-        """
-        Compute and return the final F1 Score result.
-
-        :return: Computed F1 Score.
-
-        """
-
-        eps = np.finfo(float).eps
-
-        denominators = 2 * self.tps + self.fps + self.fns
-        f1s = 2 * self.tps / (denominators + eps)
-
-        if self.mode == 'none':
-            result = f1s[:, self.classes_to_consider]
-        elif self.mode == 'binary':
-            result = f1s[:, self.pos_label]
-        elif self.mode == 'macro':
-            result = np.mean(f1s[:, self.classes_to_consider], axis=1)
-        elif self.mode == 'micro':
-            result = 2 * np.sum(self.tps[:, self.classes_to_consider], axis=1) / np.sum(
-                denominators[:, self.classes_to_consider], axis=1)
-        else:
-            raise ValueError("Undefined mode specified, available modes are 'none','macro' and 'micro'")
-
-        if self.compute_mean:
-            if self.mode == 'none':
-                result = np.mean(result, axis=0)
-            else:
-                result = np.mean(result)
-
-        return result
-
-    def reset_state(self) -> None:
-        """
-         Reset the internal state of the F1 Score metric.
-
-        :return: None
-        """
-
-        self.tps = np.zeros((self.num_labels, self.num_classes))
-        self.fps = np.zeros((self.num_labels, self.num_classes))
-        self.fns = np.zeros((self.num_labels, self.num_classes))
-
-    def __str__(self) -> str:
-        """
-        Get the name of the metric as a string.
-
-        :return: Name of the metric.
-
-        """
-
-        return self.name
-
-    def set_mode(self, compute_mean_flag: bool):
-        self.compute_mean = compute_mean_flag
-
-    def __call__(self,
-                 predicted_classes: torch.Tensor,
-                 target_classes: torch.Tensor,
-                 accumulate_statistic: bool = False):
-
-        """
-        Compute for each label the F1 Score based on predicted and target classes.
-
-
-        :param predicted_classes: Predicted classes.
-        :param target_classes: Target (ground truth) classes.
-        :param accumulate_statistic: Whether to accumulate internal statistics.
-
-        :return: Computed F1 Score.
-
-        """
-
-        tps, fps, fns = self.update_state(predicted_classes, target_classes)
-        if not accumulate_statistic:
-            self.reset_state()
-
-        eps = np.finfo(float).eps
-        denominators = 2 * tps + fps + fns
-        f1s = 2 * tps / (denominators + eps)
-
-        if self.mode == 'none':
-            result = f1s[:, self.classes_to_consider]
-        elif self.mode == 'binary':
-            result = f1s[:, self.pos_label]
-        elif self.mode == 'macro':
-            result = np.mean(f1s[:, self.classes_to_consider], axis=1)
-        elif self.mode == 'micro':
-            result = 2 * np.sum(tps[:, self.classes_to_consider], axis=1) / np.sum(
-                denominators[:, self.classes_to_consider], axis=1)
-        else:
-            raise ValueError("Undefined mode specified, available modes are 'none', 'binary', 'macro' and 'micro'")
-
-        if self.compute_mean:
-            if self.mode == 'none':
-                result = np.mean(result, axis=0)
-            else:
-                result = np.mean(result)
 
         return result

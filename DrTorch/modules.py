@@ -79,66 +79,6 @@ class DrTorchModule(torch.nn.Module):
         self.device = args[0]
         return super(DrTorchModule, self).to(*args, **kwargs)
 
-    def visualize_network_graph(self,
-                                input_element: torch.Tensor,
-                                save_image: bool = True,
-                                file_folder: str = './',
-                                file_name: str = 'my_model',
-                                file_format: str = 'png') -> None:
-        """
-        Visualizes the network graph of the model using torchviz.
-
-        :param input_element: A sample input element (tensor) to generate the network graph.
-        :param save_image: Whether to save the graph image.
-        :param file_folder: Folder Path.
-        :param file_name: The name of the saved image file (if save_image is True).
-        :param file_format: The format of the saved image file (if save_image is True).
-
-        :return: None
-
-        """
-
-        dot = make_dot(self(input_element), params=dict(self.named_parameters()))
-        display(dot)
-        if save_image:
-            dot.render(filename=os.path.join(file_folder, file_name), format=file_format, cleanup=True)
-
-    def get_summary(self, input_size: torch.Size, **kwargs) -> None:
-        """
-        Prints the summary of the model, including information about input/output shapes and parameters.
-
-        :param input_size: The size of the input tensor (e.g., torch.Size([channels, height, width])).
-
-        :return: None
-
-        """
-
-        input_data = torch.rand(input_size).unsqueeze(0).to(self.device)
-        macs, _ = profile(self, inputs=(input_data,), verbose=False)
-        macs = clever_format([macs], "%.3f")
-
-        summary(self, input_size=input_size, **kwargs)
-        print(f"Number of MAC operations: {macs}")
-
-
-class TrainableModule(DrTorchModule):
-    """
-        A class for creating trainable PyTorch modules with convenient training and evaluation methods.
-        This class extend DrTorchModule.
-
-        Methods:
-            - validate(self, data_loader, criterion, metrics, aggregate_on_dataset=True)
-            - fit(self, train_loader, val_loader, criterion, metrics, optimizer, num_epochs, early_stopper=None,
-                  aggregate_on_dataset=True, verbose=True)
-            - predict(self, data, batch_size=32)
-
-        Attributes:
-            No new attributes are introduced in this class.
-    """
-
-    def __init__(self):
-        super(TrainableModule, self).__init__()
-
     def __to_device(self,
                     data: Union[torch.tensor, Dict, List],
                     device: Union[torch.device | str]) -> Union[torch.tensor, Dict, List]:
@@ -179,6 +119,70 @@ class TrainableModule(DrTorchModule):
         else:
             return data
 
+    def visualize_network_graph(self,
+                                input_element: torch.Tensor,
+                                save_image: bool = True,
+                                file_folder: str = './',
+                                file_name: str = 'my_model',
+                                file_format: str = 'png') -> None:
+        """
+        Visualizes the network graph of the model using torchviz.
+
+        :param input_element: A sample input element (tensor) to generate the network graph.
+        :param save_image: Whether to save the graph image.
+        :param file_folder: Folder Path.
+        :param file_name: The name of the saved image file (if save_image is True).
+        :param file_format: The format of the saved image file (if save_image is True).
+
+        :return: None
+
+        """
+
+        input_element = self.__to_device(input_element, self.device)
+        outputs = self(input_element)
+
+        combined_output = torch.cat(list(outputs.values()), dim=1)
+        dot = make_dot(combined_output, params=dict(self.named_parameters()))
+        display(dot)
+        if save_image:
+            dot.render(filename=os.path.join(file_folder, file_name), format=file_format, cleanup=True)
+
+    def get_summary(self, input_size: torch.Size, **kwargs) -> None:
+        """
+        Prints the summary of the model, including information about input/output shapes and parameters.
+
+        :param input_size: The size of the input tensor (e.g., torch.Size([channels, height, width])).
+
+        :return: None
+
+        """
+
+        input_data = torch.rand(input_size).unsqueeze(0).to(self.device)
+        macs, _ = profile(self, inputs=(input_data,), verbose=False)
+        macs = clever_format([macs], "%.3f")
+
+        summary(self, input_size=input_size, **kwargs)
+        print(f"Number of MAC operations: {macs}")
+
+
+class TrainableModule(DrTorchModule):
+    """
+        A class for creating trainable PyTorch modules with convenient training and evaluation methods.
+        This class extend DrTorchModule.
+
+        Methods:
+            - validate(self, data_loader, criterion, metrics, aggregate_on_dataset=True)
+            - fit(self, train_loader, val_loader, criterion, metrics, optimizer, num_epochs, early_stopper=None,
+                  aggregate_on_dataset=True, verbose=True)
+            - predict(self, data, batch_size=32)
+
+        Attributes:
+            No new attributes are introduced in this class.
+    """
+
+    def __init__(self):
+        super(TrainableModule, self).__init__()
+
     def validate(self,
                  data_loader: torch.utils.data.DataLoader,
                  criterion: Criterion | MultyHeadCriterion,
@@ -189,8 +193,8 @@ class TrainableModule(DrTorchModule):
         Validate the model on the given data loader.
 
         :param data_loader: DataLoader containing data.
-        :param criterion: # Todo
-        :param metrics: # ToDO
+        :param criterion: Criterion or MultyHeadCriterion object specifying the loss function(s) to optimize.
+        :param metrics: Optional list of Metric or MultyHeadMetric objects for evaluation during training.
         :param aggregate_loss_on_dataset: If True, the reduce strategy is applied over all the loss of the samples of the dataset.
                                           Otherwise, the reduce strategy is applied over all the batches to get a partial loss for each batch,
                                           then the partial losses are reduced to get a unique loss for the epoch.
@@ -208,17 +212,17 @@ class TrainableModule(DrTorchModule):
 
         results = {criterion.name: []}
         for metric in metrics:
-            if isinstance(metric, Metric):
+            if isinstance(metric, SingleHeadMetric):
                 results[metric.name] = []
                 results[metric.name] = []
             elif isinstance(metric, MultyHeadMetric):
                 results[metric.name] = []
                 results[metric.name] = []
-                for head_metric in metric.metrics_functions.values:
+                for head_metric in metric.metrics_functions.values():
                     results[head_metric.name] = []
                     results[head_metric.name] = []
             else:
-                raise TypeError('Inconsistent type for metric parameter. \\'
+                raise TypeError('Inconsistent type for metric parameter. '
                                 'Only Metric or MultyHeadMetric object allowed.')
 
         aggregated_losses = torch.tensor([], device='cpu')
@@ -226,8 +230,7 @@ class TrainableModule(DrTorchModule):
         self.eval()
         with torch.no_grad():
             for iteration, (inputs, labels) in enumerate(data_loader):
-                inputs, labels = self.__to_device(inputs, self.device), labels.to(
-                    self.device)
+                inputs, labels = self.__to_device(inputs, self.device), self.__to_device(labels, self.device)
                 outputs = self(inputs)
                 loss = criterion(outputs, labels)
 
@@ -243,14 +246,14 @@ class TrainableModule(DrTorchModule):
         results[criterion.name] = criterion.reduction_function(aggregated_losses).item()
 
         for metric in metrics:
-            if isinstance(metric, Metric):
+            if isinstance(metric, SingleHeadMetric):
                 results[metric.name] = metric.get_result()
-                metric.reset_state()
             elif isinstance(metric, MultyHeadMetric):
-                metric_results = metric(outputs, labels)
-                for head_metric, head_metric_result in zip(metric.metrics_functions, metric_results.values()):
-                    results[head_metric.name] = head_metric_result
-                    head_metric.reset_state()
+                metric_results = metric.get_result()
+                for head_metric, head_metric_result in metric_results.items():
+                    results[head_metric] = head_metric_result
+
+            metric.reset_state()
 
         return results
 
@@ -272,10 +275,10 @@ class TrainableModule(DrTorchModule):
 
         :param train_loader: Training data loader.
         :param val_loader: Validation data loader.
-        :param criterion: Loss function.
-        :param optimizer: Model optimizer.
+        :param criterion: Criterion or MultyHeadCriterion object specifying the loss function(s) to optimize.
+        :param optimizer: An instance of OptimizerWrapper, specifying the optimizer for training.
         :param num_epochs: Number of training epochs.
-        :param metrics: List of dictionaries containing two fields name and function.
+        :param metrics: Optional list of Metric or MultyHeadMetric objects for evaluation during training.
         :param early_stopper: An object of type EarlyStopper, if None training goes on until num_epochs has been done
         :param aggregate_loss_on_dataset: If True, the reduce strategy is applied over all the loss of the samples of the dataset.
                                           Otherwise, the reduce strategy is applied over all the batches to get a partial loss for each batch,
@@ -323,7 +326,7 @@ class TrainableModule(DrTorchModule):
             metrics = []
 
         for metric in metrics:
-            if isinstance(metric, Metric):
+            if isinstance(metric, SingleHeadMetric):
                 train_history[metric.name] = []
                 val_history[metric.name] = []
             elif isinstance(metric, MultyHeadMetric):
@@ -364,17 +367,13 @@ class TrainableModule(DrTorchModule):
                             metrics_value[metric.name] = metric(outputs, labels)
                         elif isinstance(metric, MultyHeadMetric):
                             metric_results = metric(outputs, labels)
-                            for head_metric_result in metric_results.values():
-                                metrics_value[metric.name] = head_metric_result
+                            for head_metric_key, head_metric_result in metric_results.items():
+                                metrics_value[head_metric_key] = head_metric_result
 
                     if verbose:
                         out_str = f"\r Epoch: {epoch + 1}/{num_epochs} Iterations: {iteration + 1}/{iterations_per_epoch} - {criterion.name}: {loss.item()}"
-                        for idx, metric in enumerate(metrics):
-                            if isinstance(metric, Metric):
-                                out_str += f" - {metric.name}: {metrics_value[metric.name]}"
-                            elif isinstance(metric, MultyHeadMetric):
-                                for head_metric in enumerate(metric.metrics_functions.values()):
-                                    out_str += f" - {head_metric.name}: {metrics_value[head_metric.name]}"      # fixme
+                        for metric_name, metric_val in metrics_value.items():
+                            out_str += f" - {metric_name}: {metric_val}"
 
                         sys.stdout.write(out_str)
                         sys.stdout.flush()
@@ -396,8 +395,7 @@ class TrainableModule(DrTorchModule):
                     val_history[key].append(value)
 
                 if interaction_with_wandb:
-                    for (train_key, train_value), (val_key, val_value) in zip(train_results.items(),
-                                                                              val_results.items()):
+                    for (train_key, train_value), (val_key, val_value) in zip(train_results.items(), val_results.items()):
                         log_params['train_' + 'loss' if criterion.name is train_key else train_key] = train_value
                         log_params['val_' + 'loss' if criterion.name is train_key else train_key] = val_value
 
@@ -415,7 +413,7 @@ class TrainableModule(DrTorchModule):
                     sys.stdout.flush()
                     sys.stdout.write(out_str)
                     sys.stdout.flush()
-                    print()
+                    print("\n\n")
 
                 if early_stopper and early_stopper(val_history[early_stopper.monitor], self):
                     if verbose:

@@ -79,9 +79,9 @@ class DrTorchModule(torch.nn.Module):
         self.device = args[0]
         return super(DrTorchModule, self).to(*args, **kwargs)
 
-    def __to_device(self,
-                    data: Union[torch.tensor, Dict, List],
-                    device: Union[torch.device | str]) -> Union[torch.tensor, Dict, List]:
+    def _to_device(self,
+                   data: Union[torch.tensor, Dict, List],
+                   device: Union[torch.device | str]) -> Union[torch.tensor, Dict, List]:
         """
         Transfers the input data or nested data structures to the specified PyTorch device.
 
@@ -103,7 +103,7 @@ class DrTorchModule(torch.nn.Module):
             'mask': torch.tensor([0, 1, 2])
         }
 
-        transformed_data = __to_device(data, device)
+        transformed_data = _to_device(data, device)
         ```
 
         In this example, the `image` tensor and the `mask` tensor inside the `data` dictionary are transferred to the specified device.
@@ -113,9 +113,9 @@ class DrTorchModule(torch.nn.Module):
         if isinstance(data, torch.Tensor):
             return data.to(device)
         elif isinstance(data, dict):
-            return {key: self.__to_device(value, device) for key, value in data.items()}
+            return {key: self._to_device(value, device) for key, value in data.items()}
         elif isinstance(data, list):
-            return [self.__to_device(item, device) for item in data]
+            return [self._to_device(item, device) for item in data]
         else:
             return data
 
@@ -138,7 +138,7 @@ class DrTorchModule(torch.nn.Module):
 
         """
 
-        input_element = self.__to_device(input_element, self.device)
+        input_element = self._to_device(input_element, self.device)
         outputs = self(input_element)
 
         combined_output = torch.cat(list(outputs.values()), dim=1)
@@ -230,7 +230,7 @@ class TrainableModule(DrTorchModule):
         self.eval()
         with torch.no_grad():
             for iteration, (inputs, labels) in enumerate(data_loader):
-                inputs, labels = self.__to_device(inputs, self.device), self.__to_device(labels, self.device)
+                inputs, labels = self._to_device(inputs, self.device), self._to_device(labels, self.device)
                 outputs = self(inputs)
                 loss = criterion(outputs, labels)
 
@@ -352,7 +352,7 @@ class TrainableModule(DrTorchModule):
                 self.train()
 
                 for iteration, (inputs, labels) in enumerate(train_loader):
-                    inputs, labels = self.__to_device(inputs, self.device), self.__to_device(labels, self.device)
+                    inputs, labels = self._to_device(inputs, self.device), self._to_device(labels, self.device)
                     optimizer.zero_grad()
                     outputs = self(inputs)
                     loss = criterion(outputs, labels)
@@ -395,7 +395,8 @@ class TrainableModule(DrTorchModule):
                     val_history[key].append(value)
 
                 if interaction_with_wandb:
-                    for (train_key, train_value), (val_key, val_value) in zip(train_results.items(), val_results.items()):
+                    for (train_key, train_value), (val_key, val_value) in zip(train_results.items(),
+                                                                              val_results.items()):
                         log_params['train_' + 'loss' if criterion.name is train_key else train_key] = train_value
                         log_params['val_' + 'loss' if criterion.name is train_key else train_key] = val_value
 
@@ -445,7 +446,7 @@ class TrainableModule(DrTorchModule):
         predicted_labels_list = []
 
         for batch_data, y in data:
-            batch_data_device = self.__to_device(data=batch_data, device=self.device)
+            batch_data_device = self._to_device(data=batch_data, device=self.device)
             batch_output = self(batch_data_device)
             batch_output = model_output_function_transformation(batch_output).detach().cpu()
             predicted_labels_list.append(batch_output)

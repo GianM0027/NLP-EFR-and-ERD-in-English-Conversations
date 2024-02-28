@@ -286,9 +286,9 @@ class MultyHeadMetric(Metric):
         if self.aggregate_metrics_function is not None:
             if self.metric_weights is not None:
                 weighted_metric_results = torch.tensor(self.metric_weights) * torch.tensor(list(results.values()))
-                results[self.name] = self.aggregate_metrics_function(weighted_metric_results).items()
+                results[self.name] = self.aggregate_metrics_function(weighted_metric_results).item()
             else:
-                results[self.name] = self.aggregate_metrics_function(torch.tensor(list(results.values()))).items()
+                results[self.name] = self.aggregate_metrics_function(torch.tensor(list(results.values()))).item()
 
         results = {self.metrics_functions[key].name if key in self.metrics_functions.keys()
                    else key: results[key] for key in results.keys()}

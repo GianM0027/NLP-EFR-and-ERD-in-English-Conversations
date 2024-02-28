@@ -332,7 +332,7 @@ def pad_utterances(sequences: List[torch.Tensor], pad_token_id):
     return torch.stack(padded_sequences)
 
 
-def tokenize_data(data: pd.Series) -> Dict[str, torch.Tensor]:
+def tokenize_data(data: pd.Series, max_tokenized_length, tokenizer) -> Dict[str, torch.Tensor]:
     """
     Tokenize a pandas Series of text data.
 
@@ -344,8 +344,6 @@ def tokenize_data(data: pd.Series) -> Dict[str, torch.Tensor]:
 
     tokenizer = BertTokenizer.from_pretrained("local-bert")
 
-    max_token_length = find_max_encoded_utterance(tokenizer, data)
-
     input_ids_list = []
     attention_masks_list = []
     token_type_ids_list = []
@@ -353,7 +351,7 @@ def tokenize_data(data: pd.Series) -> Dict[str, torch.Tensor]:
     for text_list in data:
         tokenized_utterances = tokenizer.batch_encode_plus(batch_text_or_text_pairs=text_list,
                                                            padding="max_length",
-                                                           max_length=max_token_length,
+                                                           max_length=max_tokenized_length,
                                                            return_tensors='pt')
 
         input_ids_list.append(tokenized_utterances['input_ids'])

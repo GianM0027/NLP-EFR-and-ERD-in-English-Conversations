@@ -286,7 +286,7 @@ def collect_results(train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.Dat
             net = model_hyperparameters['model_class'](**new_model_hyperparameters).to(device)
             if wandb_params is not None:
                 captured_output = StringIO()
-                with capture_output() as captured:
+                with capture_output() as _:
                     with redirect_stdout(captured_output):
                         wandb.init(config=config_params, name=f'run_{run_idx}', **wandb_params)
                 wandb.watch(net, total_hyperparameters['criterion'], log="all", log_graph=True)

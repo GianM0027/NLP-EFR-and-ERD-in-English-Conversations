@@ -55,6 +55,7 @@ class BertOne(TrainableModule):
         super().__init__()
 
         self.bert = bert_model
+        self.config = self.bert.config
 
         if freeze_bert_weights:
             for param in self.bert.parameters():
@@ -64,7 +65,7 @@ class BertOne(TrainableModule):
         self.emotion_classifier = torch.nn.Linear(in_features=cls_input_size, out_features=n_emotions)
         self.trigger_classifier = torch.nn.Linear(in_features=cls_input_size, out_features=n_triggers)
 
-    def __get_n_chunk(self, input_shape: Tuple[int, int, int]) -> int:
+    def __get_n_chunk(self, input_shape: torch.Size) -> int:
         """
         Calculates the number of chunks needed based on the input shape.
 
@@ -73,11 +74,12 @@ class BertOne(TrainableModule):
         :returns:  Number of chunks.
 
         """
-
         batch_n, n_sentence, n_token = input_shape
+
         for chunks in range(1, n_sentence):
-            if n_sentence % chunks == 0 and (n_sentence * n_token) / chunks <= self.bert.config.max_position_embeddings:
+            if ((n_sentence % chunks) == 0) and ((n_sentence * n_token) / chunks <= self.bert.config.max_position_embeddings):
                 return chunks
+
         return n_sentence
 
     @staticmethod

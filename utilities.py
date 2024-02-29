@@ -393,3 +393,14 @@ def preprocess_labels(labels: pd.DataFrame) -> Dict[str, torch.Tensor]:
     encoded_triggers_tensor = encoded_triggers_tensor.view(-1, max_length, 3)
 
     return {'emotions': encoded_emotions_tensor, 'triggers': encoded_triggers_tensor}
+
+
+def create_directories(paths) -> None:
+    """
+    Creates al the directories listed in paths
+
+    :param paths: directories to create
+    :return: None
+    """
+    for path in paths:
+        os.makedirs(path, exist_ok=True)

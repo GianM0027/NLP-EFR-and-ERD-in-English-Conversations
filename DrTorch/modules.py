@@ -112,9 +112,9 @@ class DrTorchModule(torch.nn.Module):
         if isinstance(data, torch.Tensor):
             return data.to(device)
         elif isinstance(data, Dict):
-            return {key: self.to_device(value, device) for key, value in data.items()}
+            return {key: self._to_device(value, device) for key, value in data.items()}
         elif isinstance(data, List):
-            return [self.to_device(item, device) for item in data]
+            return [self._to_device(item, device) for item in data]
         else:
             return data
 
@@ -148,7 +148,7 @@ class DrTorchModule(torch.nn.Module):
 
         """
 
-        input = self.to_device(data=input, device=self.device)
+        input = self._to_device(data=input, device=self.device)
 
         if isinstance(input, Dict):
             input = (input, input)
@@ -231,7 +231,7 @@ class DrTorchModule(torch.nn.Module):
                             "Tensors or a dictionary. This function utilizes the forward pass of your model, "
                             "so ensure that your model is compatible with one of these types of data_input.")
 
-        input_data = self.to_device(input_data, self.device)
+        input_data = self._to_device(input_data, self.device)
 
         # Create properties
         summary = OrderedDict()
@@ -367,7 +367,7 @@ class TrainableModule(DrTorchModule):
         self.eval()
         with torch.no_grad():
             for iteration, (inputs, labels) in enumerate(data_loader):
-                inputs, labels = self.to_device(inputs, self.device), self.to_device(labels, self.device)
+                inputs, labels = self._to_device(inputs, self.device), self._to_device(labels, self.device)
                 outputs = self(inputs)
                 loss = criterion(outputs, labels)
 
@@ -489,7 +489,7 @@ class TrainableModule(DrTorchModule):
                 self.train()
 
                 for iteration, (inputs, labels) in enumerate(train_loader):
-                    inputs, labels = self.to_device(inputs, self.device), self.to_device(labels, self.device)
+                    inputs, labels = self._to_device(inputs, self.device), self._to_device(labels, self.device)
                     optimizer.zero_grad()
                     outputs = self(inputs)
                     loss = criterion(outputs, labels)

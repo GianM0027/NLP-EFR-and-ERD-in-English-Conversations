@@ -170,21 +170,53 @@ class MultyHeadMetric(Metric):
     Multi-head metric implementation for evaluating multiple metrics on different subsets of predictions and targets.
 
     Attributes:
-    - metrics_functions (dict): A dictionary containing metric functions for each head.
-    - metric_weights (list): Optional list of weights for each metric when aggregating results.
-    - aggregate_metrics_function (callable): Optional function for aggregating individual head metrics into a single score.
+        - metrics_functions (dict): A dictionary containing metric functions for each head.
+        - metric_weights (list): Optional list of weights for each metric when aggregating results.
+        - aggregate_metrics_function (callable): Optional function for aggregating individual head metrics into a single score.
 
     Methods:
-    - __init__(self, name: str, metrics_functions: Dict[str, Callable], metric_weights: Optional[List[int]] = None,
-               aggregate_metrics_function: Optional[Callable] = None): Constructor method to initialize the multi-head metric.
-    - __call__(self, predicted_classes: torch.Tensor, target_classes: torch.Tensor, accumulate_statistic: bool = False) -> Dict:
-               Main method to compute the metric values based on the predicted and target classes.
-    - update_state(self, predicted_classes: Dict[str, torch.Tensor], target_classes: Dict[str, torch.Tensor]) -> None:
-               Method to update the state of individual metrics with new predicted and target classes.
-    - reset_state(self) -> None: Method to reset the state of all individual metrics.
-    - get_result(self) -> Dict[str, Float]: Method to retrieve the results of all individual metrics.
+        - __init__(self, name: str, metrics_functions: Dict[str, Callable], metric_weights: Optional[List[int]] = None,
+                   aggregate_metrics_function: Optional[Callable] = None): Constructor method to initialize the multi-head metric.
+        - __call__(self, predicted_classes: torch.Tensor, target_classes: torch.Tensor, accumulate_statistic: bool = False) -> Dict:
+                   Main method to compute the metric values based on the predicted and target classes.
+        - update_state(self, predicted_classes: Dict[str, torch.Tensor], target_classes: Dict[str, torch.Tensor]) -> None:
+                   Method to update the state of individual metrics with new predicted and target classes.
+        - reset_state(self) -> None: Method to reset the state of all individual metrics.
+        - get_result(self) -> Dict[str, Float]: Method to retrieve the results of all individual metrics.
 
-    TODO ADD EXEMPLE
+    Examples:
+        # Example of how to instantiate and use MultyHeadMetric
+        import torch
+        from DrTorch.metrics import MultyHeadMetric, Recall, Precision
+
+        # Sample predicted and target classes for different heads
+        predicted_classes = {
+            'head1': torch.tensor([0, 1, 2, 1, 0]),
+            'head2': torch.tensor([1, 2, 1, 0, 1])
+        }
+        target_classes = {
+            'head1': torch.tensor([0, 1, 2, 2, 1]),
+            'head2': torch.tensor([2, 1, 0, 1, 2])
+        }
+
+        # Instantiate individual metrics for each head
+        recall_metric = Recall(name='Recall', num_classes=3)
+        precision_metric = Precision(name='Precision', num_classes=3)
+
+        # Define metrics functions dictionary for each head
+        metrics_functions = {'head1': recall_metric, 'head2': precision_metric}
+
+        # Instantiate MultyHeadMetric with defined metrics functions
+        multi_head_metric = MultyHeadMetric(name='MultiHeadMetric',
+                                            metrics_functions=metrics_functions,
+                                            aggregate_metrics_function=your_custom_aggregation_function)
+
+        # Compute metric values for each head
+        results = multi_head_metric(predicted_classes, target_classes)
+
+        # Retrieve results
+        print("Metric Results:", results)
+
     """
 
     def __init__(self,
@@ -323,16 +355,33 @@ class F1_Score(SingleHeadMetric):
         __str__(self) -> str:
             Returns the name of the metric as a string.
 
+    Examples:
+        # Example of how to instantiate and use F1_Score metric
+        import torch
+        from your_module import F1_Score
+
+        # Sample predicted and target classes
+        predicted_classes = torch.tensor([0, 1, 2, 1, 0])
+        target_classes = torch.tensor([0, 1, 2, 2, 1])
+
+        # Instantiate F1_Score metric
+        f1_metric = F1_Score(name='F1_macro', mode='macro', num_classes=3)
+
+        # Calculate F1 Score
+        f1_score = f1_metric(predicted_classes, target_classes)
+
+        print("F1 Score:", f1_score)
+
     """
 
     def __init__(self,
-                 name: str = 'default_name',
+                 name: str = 'F1_macro',
                  mode: str = 'macro',
                  pos_label: int = 1,
                  num_classes: int = None,
                  classes_to_exclude: Optional[List[int] | np.ndarray[int]] = None,
-
-                 **parent_params: Dict[str, Any]):
+                 pred_transform: Optional[Callable] = None,
+                 target_transform: Optional[Callable] = None):
         """
         Initialize the F1 Score metric.
 
@@ -341,12 +390,17 @@ class F1_Score(SingleHeadMetric):
         :param pos_label: Used when mode='binary' to select the class you want to consider.
         :param num_classes: Number of classes. Required for computing F1 Score.
         :param classes_to_exclude: Classes to exclude from the computation. Defaults to None.
+        :param pred_transform:
+        :param target_transform:
 
         **parent_params: Additional parameters to be passed to the parent class.
 
         """
 
-        super().__init__(name=name, num_classes=num_classes, **parent_params)
+        super().__init__(name=name,
+                         num_classes=num_classes,
+                         pred_transform=pred_transform,
+                         target_transform=target_transform)
 
         self.mode = mode
         self.pos_label = pos_label
@@ -467,3 +521,479 @@ class F1_Score(SingleHeadMetric):
             raise ValueError("Undefined mode specified, available modes are 'none', 'binary', 'macro' and 'micro'")
 
         return result
+
+
+class Accuracy(SingleHeadMetric):
+    """
+    Accuracy metric implementation for multiclass classification tasks.
+
+    Attributes:
+        name (str): Name of the metric.
+        num_classes (int): Number of classes in the classification task.
+        classes_to_exclude (list[int] or np.ndarray[int]): Classes to exclude from the computation.
+        classes_to_consider (np.ndarray[int]): Classes to consider for computation.
+        numerator (float): Accumulator for the numerator in accuracy computation.
+        denominator (float): Accumulator for the denominator in accuracy computation.
+
+    Methods:
+        __init__(self, name: str = 'Accuracy', num_classes: int = None,
+                 classes_to_exclude: Optional[List[int] | np.ndarray[int]] = None,
+                 pred_transform: Optional[Callable] = None,
+                 target_transform: Optional[Callable] = None):
+            Initializes the Accuracy metric.
+
+        __call__(self, predicted_classes: torch.Tensor, target_classes: torch.Tensor,
+                 accumulate_statistic: bool = False) -> float:
+            Computes the accuracy based on predicted and target classes.
+
+        update_state(self, predicted_classes: torch.Tensor, target_classes: torch.Tensor) -> Tuple[float, float]:
+            Updates the internal state of the Accuracy metric.
+
+        reset_state(self) -> None:
+            Resets the internal state of the Accuracy metric.
+
+        get_result(self) -> float:
+            Computes and returns the final accuracy result.
+     Examples:
+        # Example of how to instantiate and use Accuracy metric
+        import torch
+        from your_module import Accuracy
+
+        # Sample predicted and target classes
+        predicted_classes = torch.tensor([0, 1, 2, 1, 0])
+        target_classes = torch.tensor([0, 1, 2, 2, 1])
+
+        # Instantiate Accuracy metric
+        accuracy_metric = Accuracy(name='Accuracy', num_classes=3)
+
+        # Calculate accuracy
+        accuracy = accuracy_metric(predicted_classes, target_classes)
+
+        print("Accuracy:", accuracy)
+
+    """
+
+    def __init__(self,
+                 name: str = 'Accuracy',
+                 num_classes: int = None,
+                 classes_to_exclude: Optional[List[int] | np.ndarray[int]] = None,
+                 pred_transform: Optional[Callable] = None,
+                 target_transform: Optional[Callable] = None):
+        """
+        Initialize the Accuracy metric.
+
+
+        :params:name: Name of the metric.
+        :params:num_classes: Number of classes in the classification task.
+        :params:classes_to_exclude: Classes to exclude from the computation. Defaults to None.
+        :params:pred_transform: A transformation function for mapping the model output into a suitable
+                                             metric input. Defaults to None.
+        :params:target_transform: A transformation function for mapping the target labels into a suitable
+                                                    metric input. Defaults to None.
+
+        """
+
+        super().__init__(name=name,
+                         num_classes=num_classes,
+                         pred_transform=pred_transform,
+                         target_transform=target_transform)
+
+        self.classes_to_exclude = classes_to_exclude if classes_to_exclude else []
+        self.classes_to_consider = np.arange(self.num_classes)[
+            ~np.isin(np.arange(self.num_classes), self.classes_to_exclude)]
+        self.numerator = 0
+        self.denominator = 0
+
+    def __call__(self,
+                 predicted_classes: torch.Tensor,
+                 target_classes: torch.Tensor,
+                 accumulate_statistic: bool = False):
+        """
+        Compute the Accuracy metric based on predicted and target classes.
+
+        :params predicted_classes: Predicted classes.
+        :params target_classes: Target (ground truth) classes.
+        :params accumulate_statistic: Whether to accumulate internal statistics.
+
+        returns: Computed Accuracy Score.
+
+        """
+
+        numerator, denominator = self.update_state(predicted_classes, target_classes)
+        if not accumulate_statistic:
+            self.reset_state()
+
+        accuracy = numerator / denominator
+        return accuracy
+
+    def update_state(self,
+                     predicted_classes: torch.Tensor,
+                     target_classes: torch.Tensor) -> Tuple[Float, Float]:
+        """
+        Update the internal state of the Accuracy metric.
+
+        :params predicted_classes: Predicted classes.
+        :params target_classes: Target (ground truth) classes.
+
+        returns: True positives and false positives.
+
+        """
+
+        predicted_classes = self.pred_transform(predicted_classes)
+        target_classes = self.target_transform(target_classes)
+
+        predicted_classes = predicted_classes.cpu().numpy()
+        target_classes = target_classes.cpu().numpy()
+
+        mask = ~np.isin(target_classes, self.classes_to_exclude)
+
+        predicted_classes = predicted_classes[mask]
+        target_classes = target_classes[mask]
+
+        confusion_matrix = np.zeros((self.num_classes, self.num_classes))
+        for predicted_id, target_id in zip(predicted_classes, target_classes):
+            confusion_matrix[predicted_id, target_id] += 1
+
+        numerator = np.sum(np.diag(confusion_matrix))
+        denominator = np.sum(confusion_matrix, axis=None)
+
+        self.numerator += numerator
+        self.denominator += denominator
+
+        return numerator, denominator
+
+    def reset_state(self) -> None:
+        """
+        Reset the internal state of the Accuracy metric.
+
+        :return: None
+
+        """
+
+        self.numerator = 0
+        self.denominator = 0
+
+    def get_result(self) -> float:
+        """
+        Compute and return the final Accuracy metric.
+
+        :return: Computed Accuracy Score.
+
+        """
+
+        return self.numerator / self.denominator
+
+
+class Recall(SingleHeadMetric):
+    """
+    Recall metric implementation for multiclass classification tasks.
+
+    Attributes:
+        name (str): Name of the metric.
+        num_classes (int): Number of classes in the classification task.
+        classes_to_exclude (list[int] or np.ndarray[int]): Classes to exclude from the computation.
+        pred_transform (Optional[Callable]): A transformation function for mapping the model output into a suitable
+                                              metric input.
+        target_transform (Optional[Callable]): A transformation function for mapping the target labels into a suitable
+                                                metric input.
+        tp (int): True positives.
+        fn (int): False negatives.
+
+    Methods:
+        __init__(self, name: str = 'Accuracy', num_classes: int = None,
+                 classes_to_exclude: Optional[List[int] | np.ndarray[int]] = None,
+                 pred_transform: Optional[Callable] = None, target_transform: Optional[Callable] = None):
+            Initialize the Recall metric.
+        __call__(self, predicted_classes: torch.Tensor, target_classes: torch.Tensor,
+                 accumulate_statistic: bool = False) -> float:
+            Compute the Recall Score based on predicted and target classes.
+        update_state(self, predicted_classes: torch.Tensor, target_classes: torch.Tensor) -> Tuple[Float, Float]:
+            Update the internal state of the Recall Score metric.
+        reset_state(self) -> None:
+            Reset the internal state of the Recall metric.
+        get_result(self) -> float:
+            Compute and return the final Recall metric.
+    Examples:
+        # Example of how to instantiate and use Recall metric
+        import torch
+        from your_module import Recall
+
+        # Sample predicted and target classes
+        predicted_classes = torch.tensor([0, 1, 2, 1, 0])
+        target_classes = torch.tensor([0, 1, 2, 2, 1])
+
+        # Instantiate Recall metric
+        recall_metric = Recall(name='Recall', num_classes=3)
+
+        # Calculate Recall Score
+        recall = recall_metric(predicted_classes, target_classes)
+
+        print("Recall Score:", recall)
+
+    """
+
+    def __init__(self,
+                 name: str = 'Accuracy',
+                 num_classes: int = None,
+                 classes_to_exclude: Optional[List[int] | np.ndarray[int]] = None,
+                 pred_transform: Optional[Callable] = None,
+                 target_transform: Optional[Callable] = None):
+        """
+        Initialize the Recall metric.
+
+
+        :params name: Name of the metric.
+        :params num_classes: Number of classes in the classification task.
+        :params classes_to_exclude: Classes to exclude from the computation.
+        :params pred_transform: A transformation function for mapping the model output into a suitable
+                                               metric input.
+        :params target_transform: A transformation function for mapping the target labels into a suitable
+                                                    metric input.
+        """
+        super().__init__(name=name,
+                         num_classes=num_classes,
+                         pred_transform=pred_transform,
+                         target_transform=target_transform)
+
+        self.classes_to_exclude = classes_to_exclude if classes_to_exclude else []
+        self.classes_to_consider = np.arange(self.num_classes)[~np.isin(np.arange(self.num_classes), self.classes_to_exclude)]
+        self.tp = 0
+        self.fn = 0
+
+    def __call__(self,
+                 predicted_classes: torch.Tensor,
+                 target_classes: torch.Tensor,
+                 accumulate_statistic: bool = False):
+        """
+        Compute the Recall Score based on predicted and target classes.
+
+        :param predicted_classes: Predicted classes.
+        :param target_classes: Target (ground truth) classes.
+        :param accumulate_statistic: Whether to accumulate internal statistics.
+
+        :return: Computed Recall Score.
+
+        """
+
+        tp, fn = self.update_state(predicted_classes, target_classes)
+
+        if not accumulate_statistic:
+            self.reset_state()
+
+        eps = np.finfo(float).eps
+        denominator = tp + fn + eps
+
+        recall = tp / denominator
+
+        return recall
+
+    def update_state(self,
+                     predicted_classes: torch.Tensor,
+                     target_classes: torch.Tensor) -> Tuple[Float, Float]:
+        """
+        Update the internal state of the Recall Score metric.
+
+        :param predicted_classes: Predicted classes.
+        :param target_classes: Target (ground truth) classes.
+
+        :return: Tuple containing true positives and false negatives.
+
+        """
+
+        predicted_classes = self.pred_transform(predicted_classes)
+        target_classes = self.target_transform(target_classes)
+
+        predicted_classes = predicted_classes.cpu().numpy()
+        target_classes = target_classes.cpu().numpy()
+
+        mask = ~np.isin(target_classes, self.classes_to_exclude)
+
+        predicted_classes = predicted_classes[mask]
+        target_classes = target_classes[mask]
+
+        confusion_matrix = np.zeros((self.num_classes, self.num_classes))
+        for predicted_id, target_id in zip(predicted_classes, target_classes):
+            confusion_matrix[predicted_id, target_id] += 1
+
+        tp = np.sum(np.diag(confusion_matrix))
+        fn = np.sum(confusion_matrix, axis=0) - tp
+
+        self.tp += tp
+        self.fn += fn
+
+        return tp, fn
+
+    def reset_state(self) -> None:
+        """
+        Reset the internal state of the Recall metric.
+
+        :return: None
+
+        """
+
+        self.tp = 0
+        self.fn = 0
+
+    def get_result(self) -> float:
+        """
+        Compute and return the final Recall metric.
+
+        :return: Computed Recall Score.
+
+        """
+
+        eps = np.finfo(float).eps
+
+        return self.tp / (self.tp + self.fn + eps)
+
+
+class Precision(SingleHeadMetric):
+    """
+    Precision metric implementation for multiclass classification tasks.
+
+    Attributes:
+        name (str): Name of the metric.
+        num_classes (int): Number of classes in the classification task.
+        classes_to_exclude (list[int] or np.ndarray[int]): Classes to exclude from the computation.
+        pred_transform (Optional[Callable]): A transformation function for mapping the model output into a suitable
+                                             metric input.
+        target_transform (Optional[Callable]): A transformation function for mapping the target labels into a suitable
+                                               metric input.
+        tp (int): True positives.
+        fp (int): False positives.
+
+    Methods:
+        __init__(self, name: str = 'Accuracy', num_classes: int = None,
+                 classes_to_exclude: Optional[List[int] | np.ndarray[int]] = None,
+                 pred_transform: Optional[Callable] = None, target_transform: Optional[Callable] = None):
+            Initialize the Precision metric.
+        __call__(self, predicted_classes: torch.Tensor, target_classes: torch.Tensor,
+                 accumulate_statistic: bool = False) -> float:
+            Compute the Precision Score based on predicted and target classes.
+        update_state(self, predicted_classes: torch.Tensor, target_classes: torch.Tensor) -> Tuple[Float, Float]:
+            Update the internal state of the Precision Score metric.
+        reset_state(self) -> None:
+            Reset the internal state of the Precision metric.
+        get_result(self) -> float:
+            Compute and return the final Precision metric.
+
+    Examples:
+        # Example of how to instantiate and use Precision metric
+        import torch
+        from your_module import Precision
+
+        # Sample predicted and target classes
+        predicted_classes = torch.tensor([0, 1, 2, 1, 0])
+        target_classes = torch.tensor([0, 1, 2, 2, 1])
+
+        # Instantiate Precision metric
+        precision_metric = Precision(name='Precision', num_classes=3)
+
+        # Calculate Precision Score
+        precision = precision_metric(predicted_classes, target_classes)
+
+        print("Precision Score:", precision)
+
+    """
+
+    def __init__(self,
+                 name: str = 'Accuracy',
+                 num_classes: int = None,
+                 classes_to_exclude: Optional[List[int] | np.ndarray[int]] = None,
+                 pred_transform: Optional[Callable] = None,
+                 target_transform: Optional[Callable] = None):
+        super().__init__(name=name,
+                         num_classes=num_classes,
+                         pred_transform=pred_transform,
+                         target_transform=target_transform)
+
+        self.classes_to_exclude = classes_to_exclude if classes_to_exclude else []
+        self.classes_to_consider = np.arange(self.num_classes)[
+            ~np.isin(np.arange(self.num_classes), self.classes_to_exclude)]
+        self.tp = 0
+        self.fp = 0
+
+    def __call__(self,
+                 predicted_classes: torch.Tensor,
+                 target_classes: torch.Tensor,
+                 accumulate_statistic: bool = False):
+        """
+        Compute the Recall Score based on predicted and target classes.
+
+        :param predicted_classes: Predicted classes.
+        :param target_classes: Target (ground truth) classes.
+        :param accumulate_statistic: Whether to accumulate internal statistics.
+
+        :return: Computed Precision Score.
+
+        """
+
+        tp, fp = self.update_state(predicted_classes, target_classes)
+
+        if not accumulate_statistic:
+            self.reset_state()
+
+        eps = np.finfo(float).eps
+        denominator = tp + fp + eps
+
+        precision = tp / denominator
+
+        return precision
+
+    def update_state(self,
+                     predicted_classes: torch.Tensor,
+                     target_classes: torch.Tensor) -> Tuple[Float, Float]:
+        """
+        Update the internal state of the Precision Score metric.
+
+        :param predicted_classes: Predicted classes.
+        :param target_classes: Target (ground truth) classes.
+
+        :return: Tuple containing true positives and false positive.
+
+        """
+
+        predicted_classes = self.pred_transform(predicted_classes)
+        target_classes = self.target_transform(target_classes)
+
+        predicted_classes = predicted_classes.cpu().numpy()
+        target_classes = target_classes.cpu().numpy()
+
+        mask = ~np.isin(target_classes, self.classes_to_exclude)
+
+        predicted_classes = predicted_classes[mask]
+        target_classes = target_classes[mask]
+
+        confusion_matrix = np.zeros((self.num_classes, self.num_classes))
+        for predicted_id, target_id in zip(predicted_classes, target_classes):
+            confusion_matrix[predicted_id, target_id] += 1
+
+        tp = np.sum(np.diag(confusion_matrix))
+        fp = np.sum(confusion_matrix, axis=1) - tp
+
+        self.tp += tp
+        self.fp += fp
+
+        return tp, fp
+
+    def reset_state(self) -> None:
+        """
+        Reset the internal state of the Precision metric.
+
+        :return: None
+
+        """
+
+        self.tp = 0
+        self.fp = 0
+
+    def get_result(self) -> float:
+        """
+        Compute and return the final Precision metric.
+
+        :return: Computed Precision Score.
+
+        """
+        eps = np.finfo(float).eps
+
+        return self.tp / (self.tp + self.fp + eps)

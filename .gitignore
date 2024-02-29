@@ -6,3 +6,4 @@ DrTorch/__pycache__/
 models/__pycache__/git
 
 *.pyc
+*.onnx

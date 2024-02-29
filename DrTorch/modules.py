@@ -14,25 +14,24 @@
 
 
 """
+from collections import OrderedDict
 from typing import Union, Any, Dict, List, Tuple, Callable, Optional
 
 import wandb
+import netron
 
 from .wrappers import Criterion, OptimizerWrapper, MultyHeadCriterion
 from .metrics import Metric, MultyHeadMetric, SingleHeadMetric
 from .callbacks import EarlyStopper
 
-import os
 import time
 import sys
 
 import torch
 import numpy as np
 
-from torchviz import make_dot
-from torchsummary import summary
 from thop import profile, clever_format
-from IPython.display import display
+from IPython.lib.display import IFrame
 
 
 class DrTorchModule(torch.nn.Module):
@@ -112,57 +111,195 @@ class DrTorchModule(torch.nn.Module):
 
         if isinstance(data, torch.Tensor):
             return data.to(device)
-        elif isinstance(data, dict):
-            return {key: self._to_device(value, device) for key, value in data.items()}
-        elif isinstance(data, list):
-            return [self._to_device(item, device) for item in data]
+        elif isinstance(data, Dict):
+            return {key: self.to_device(value, device) for key, value in data.items()}
+        elif isinstance(data, List):
+            return [self.to_device(item, device) for item in data]
         else:
             return data
 
     def visualize_network_graph(self,
-                                input_element: torch.Tensor,
-                                save_image: bool = True,
-                                file_folder: str = './',
-                                file_name: str = 'my_model',
-                                file_format: str = 'png') -> None:
+                                input: torch.Tensor | Dict[str, torch.Tensor],
+                                file_nme: str = "default_name.onnx",
+                                input_names: Optional[List[str]] = None,
+                                output_names: Optional[List[str]] = None,
+                                export_params: bool = True,
+                                visualize_in_browser: bool = False,
+                                width: int = 1400,
+                                height: int = 700,
+                                verbosity: int = 0,
+                                **kwargs: Dict[str, Any]):
         """
-        Visualizes the network graph of the model using torchviz.
+        Visualizes the network graph of the model using ONNX.
 
-        :param input_element: A sample input element (tensor) to generate the network graph.
-        :param save_image: Whether to save the graph image.
-        :param file_folder: Folder Path.
-        :param file_name: The name of the saved image file (if save_image is True).
-        :param file_format: The format of the saved image file (if save_image is True).
+        :param input: Input data for generating the network graph. It can be either a torch.Tensor or a dictionary containing input data.
+        :param file_nme: Name of the file to save the generated graph (default is "default_name.onnx").
+        :param input_names: Names of the input nodes in the generated ONNX file (default is ['inputs']).
+        :param output_names: Names of the output nodes in the generated ONNX file (default is same as input_names).
+        :param export_params: If True, exports parameters along with the network graph (default is True).
+        :param visualize_in_browser: If True, opens the network graph in a browser using Netron (default is False).
+        :param width: Width of the displayed network graph (default is 1400).
+        :param height: Height of the displayed network graph (default is 700).
+        :param verbosity: Verbosity level of Netron (0 is silent, 1 is minimal, 2 is verbose) (default is 0).
+        :param kwargs: Additional keyword arguments to pass to torch.onnx.export().
 
-        :return: None
-
-        """
-
-        input_element = self._to_device(input_element, self.device)
-        outputs = self(input_element)
-
-        combined_output = torch.cat(list(outputs.values()), dim=1)
-        dot = make_dot(combined_output, params=dict(self.named_parameters()))
-        display(dot)
-        if save_image:
-            dot.render(filename=os.path.join(file_folder, file_name), format=file_format, cleanup=True)
-
-    def get_summary(self, input_size: torch.Size, **kwargs) -> None:
-        """
-        Prints the summary of the model, including information about input/output shapes and parameters.
-
-        :param input_size: The size of the input tensor (e.g., torch.Size([channels, height, width])).
-
-        :return: None
+        :return: If visualize_in_browser is False, returns an IFrame object displaying the network graph,
+                otherwise the graph will be shown in the browser.
 
         """
 
-        input_data = torch.rand(input_size).unsqueeze(0).to(self.device)
+        input = self.to_device(data=input, device=self.device)
+
+        if isinstance(input, Dict):
+            input = (input, input)
+        else:
+            raise TypeError('Invalid type for attribute input. Only torch.Tensor or Dict are allowed.')
+
+        input_names = input_names if input_names is not None else ['inputs']
+        output_names = output_names if output_names is not None else ['outputs']
+
+        torch.onnx.export(self, input, file_nme, input_names=input_names, output_names=output_names,
+                          export_params=export_params, **kwargs)
+
+        netron_url = "http://localhost:8080/"
+        netron.start(file_nme, browse=visualize_in_browser, verbosity=verbosity)
+
+        if not visualize_in_browser:
+            return IFrame(netron_url, width=width, height=height)
+
+    def summary(self,
+                input_data: torch.Tensor | Dict[str, torch.Tensor] | List[torch.Tensor],
+                batch_size: int = -1,
+                verbose: bool = True):
+        """
+        This method provides a custom summary of the neural network model, including details about each layer's input and output shapes, parameter count, and memory consumption. It also estimates the number of MAC (Multiply-Accumulate) operations.
+
+        :param input_data: Input data to the model. It could be a torch.Tensor, a list of torch.Tensors, or a dictionary of torch.Tensors.
+        :param batch_size: Batch size for the input data. Default is -1, which will be inferred from the input data if possible.
+        :param verbose: If True, prints the summary; otherwise, suppresses printing.
+
+        :returns: None
+
+        """
+
+        def register_hook(module):
+
+            def hook(my_module, input, output):
+                class_name = str(my_module.__class__).split(".")[-1].split("'")[0]
+                module_idx = len(summary)
+
+                m_key = "%s-%i" % (class_name, module_idx + 1)
+                summary[m_key] = OrderedDict()
+                if len(input) > 0:
+                    summary[m_key]["input_shape"] = list(input[0].size())
+                    summary[m_key]["input_shape"][0] = batch_size
+                if isinstance(output, (list, tuple)):
+                    summary[m_key]["output_shape"] = [
+                        [-1] + list(o.size())[1:] for o in output
+                    ]
+                else:
+                    if hasattr(output, "size"):
+                        summary[m_key]["output_shape"] = list(output.size())
+                        summary[m_key]["output_shape"][0] = batch_size
+                    elif hasattr(output, "last_hidden_state"):
+                        summary[m_key]["output_shape"] = list(output.last_hidden_state.size())
+                        summary[m_key]["output_shape"][0] = batch_size
+
+                params = 0
+                if hasattr(my_module, "weight") and hasattr(my_module.weight, "size"):
+                    params += torch.prod(torch.LongTensor(list(my_module.weight.size())))
+                    summary[m_key]["trainable"] = my_module.weight.requires_grad
+                if hasattr(my_module, "bias") and hasattr(my_module.bias, "size"):
+                    params += torch.prod(torch.LongTensor(list(my_module.bias.size())))
+                summary[m_key]["nb_params"] = params
+
+            if (
+                    not isinstance(module, torch.nn.Sequential)
+                    and not isinstance(module, torch.nn.ModuleList)
+                    and not (module == self)
+            ):
+                hooks.append(module.register_forward_hook(hook))
+
+        if isinstance(input_data, torch.Tensor):
+            batch_size = input_data.size()[0]
+        elif isinstance(input_data, List):
+            batch_size = input_data[0].size()[0]
+        elif isinstance(input_data, Dict):
+            batch_size = list(input_data.values())[0].size()[0]
+        else:
+            raise TypeError("Inconsistent input_data Type. The input_data could be either a list of torch "
+                            "Tensors or a dictionary. This function utilizes the forward pass of your model, "
+                            "so ensure that your model is compatible with one of these types of data_input.")
+
+        input_data = self.to_device(input_data, self.device)
+
+        # Create properties
+        summary = OrderedDict()
+        hooks = []
+
+        # Register hook
+        self.apply(register_hook)
+
+        # Make a forward pass
+        _ = self(input_data)
+
+        # Remove hooks
+        for h in hooks:
+            h.remove()
+
+        total_params = 0
+        total_output = 0
+        trainable_params = 0
+
+        separator_len = 50
+
+        if verbose:
+            line_new = "{:>25}  {:>25} {:>15}".format("Layer (type)", "Output Shape", "Param #")
+            separator_len = len(line_new)
+            print("-" * separator_len)
+            print(line_new)
+            print("=" * separator_len)
+            for layer in summary:
+                # input_shape, output_shape, trainable, nb_params
+                line_new = "{:>25}  {:>25} {:>15}".format(
+                    layer,
+                    str(summary[layer].get("output_shape", '-')),
+                    "{0:,}".format(summary[layer]["nb_params"]),
+                )
+                total_params += summary[layer]["nb_params"]
+                total_output += np.prod(summary[layer].get("output_shape", 0))
+                if "trainable" in summary[layer]:
+                    if summary[layer]["trainable"]:
+                        trainable_params += summary[layer]["nb_params"]
+                print(line_new)
+
+        # Assume 4 bytes/number (float on cuda).
+        if isinstance(input_data, torch.Tensor):
+            total_input_size = abs(np.prod(input_data.size()) * 4. / (1024 ** 2.))
+        elif isinstance(input_data, List):
+            total_input_size = abs(sum(np.prod(v.size()) for v in input_data) * 4. / (1024 ** 2.))
+        else:
+            total_input_size = abs(sum(np.prod(v.size()) for v in input_data.values()) * 4. / (1024 ** 2.))
+
+        total_output_size = abs(2. * total_output * 4. / (1024 ** 2.))  # x2 for gradients
+        total_params_size = abs(total_params * 4. / (1024 ** 2.))
+        total_size = total_params_size + total_output_size + total_input_size
+
         macs, _ = profile(self, inputs=(input_data,), verbose=False)
         macs = clever_format([macs], "%.3f")
 
-        summary(self, input_size=input_size, **kwargs)
+        print("=" * separator_len)
+        print("Total params: {0:,}".format(total_params))
+        print("Trainable params: {0:,}".format(trainable_params))
+        print("Non-trainable params: {0:,}".format(total_params - trainable_params))
+        print("-" * separator_len)
+        print("Input size (MB): %0.2f" % total_input_size)
+        print("Forward/backward pass size (MB): %0.2f" % total_output_size)
+        print("Params size (MB): %0.2f" % total_params_size)
+        print("Estimated Total Size (MB): %0.2f" % total_size)
+        print("-" * separator_len)
         print(f"Number of MAC operations: {macs}")
+        print("=" * separator_len)
 
 
 class TrainableModule(DrTorchModule):
@@ -230,7 +367,7 @@ class TrainableModule(DrTorchModule):
         self.eval()
         with torch.no_grad():
             for iteration, (inputs, labels) in enumerate(data_loader):
-                inputs, labels = self._to_device(inputs, self.device), self._to_device(labels, self.device)
+                inputs, labels = self.to_device(inputs, self.device), self.to_device(labels, self.device)
                 outputs = self(inputs)
                 loss = criterion(outputs, labels)
 
@@ -352,7 +489,7 @@ class TrainableModule(DrTorchModule):
                 self.train()
 
                 for iteration, (inputs, labels) in enumerate(train_loader):
-                    inputs, labels = self._to_device(inputs, self.device), self._to_device(labels, self.device)
+                    inputs, labels = self.to_device(inputs, self.device), self.to_device(labels, self.device)
                     optimizer.zero_grad()
                     outputs = self(inputs)
                     loss = criterion(outputs, labels)
@@ -446,7 +583,7 @@ class TrainableModule(DrTorchModule):
         predicted_labels_list = []
 
         for batch_data, y in data:
-            batch_data_device = self._to_device(data=batch_data, device=self.device)
+            batch_data_device = self.to_device(data=batch_data, device=self.device)
             batch_output = self(batch_data_device)
             batch_output = model_output_function_transformation(batch_output).detach().cpu()
             predicted_labels_list.append(batch_output)

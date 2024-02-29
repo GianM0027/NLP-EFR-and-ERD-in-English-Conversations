@@ -105,11 +105,57 @@ class Criterion(AbstractCriterion):
 
 
 class MultyHeadCriterion(AbstractCriterion):
+    """
+    A class representing a multi-head loss criterion for training neural networks.
+    This class allows for applying different loss functions to different subsets of predictions and targets.
+
+    Attributes:
+        - name (str): A name for the multi-head criterion.
+        - loss_functions (Dict[str, Callable]): A dictionary containing loss functions for each head.
+        - loss_weights (List[int]): Optional list of weights for each loss when aggregating results.
+        - reduction_function (Optional[Callable]): Optional function for aggregating individual head losses.
+
+    Methods:
+        - __init__(self, name: str, loss_functions: Dict[str, Callable], loss_weights: List[int],
+                   reduction_function: Optional[Callable] = None): Constructor method to initialize the multi-head criterion.
+        - __call__(self, predicted_labels: Dict[str, torch.Tensor], target_labels: Dict[str, torch.Tensor]) -> torch.Tensor:
+                  Main method to compute the loss values based on the predicted and target labels.
+
+    Example:
+        # Replace with actual loss functions and weights
+        loss_functions = {
+            'head1': torch.nn.CrossEntropyLoss(),
+            'head2': torch.nn.MSELoss(),
+            ...
+        }
+        loss_weights = [1, 2, ...]  # Replace with actual weights
+
+        # Instantiate the MultyHeadCriterion class
+        criterion = MultyHeadCriterion(name='loss', loss_functions=loss_functions, loss_weights=loss_weights)
+
+        # Example usage of the criterion
+        predicted_labels = {'head1': torch.randn(10, 10), 'head2': torch.randn(10, 1), ...}  # Example predicted labels
+        target_labels = {'head1': torch.randint(0, 10, (10,)), 'head2': torch.randn(10, 1), ...}  # Example target labels
+
+        # Calculate the loss
+        my_loss = criterion(predicted_labels, target_labels)
+
+    """
+
     def __init__(self,
                  name: str,
                  loss_functions: Dict[str, Callable],
                  loss_weights: List[int],
                  reduction_function: Optional[Callable] = None):
+        """
+       Initialize a multi-head loss criterion.
+
+       :param name: A name for the multi-head criterion.
+       :param loss_functions: A dictionary mapping head keys to loss functions.
+       :param loss_weights: List of weights for each loss when aggregating results.
+       :param reduction_function: Optional function for aggregating individual head losses.
+
+       """
 
         super().__init__(name=name, reduction_function=reduction_function)
         self.loss_functions = loss_functions
@@ -135,7 +181,7 @@ class MultyHeadCriterion(AbstractCriterion):
 
         losses = [weight * current_loss for weight, current_loss in zip(self.loss_weights, losses)]
         loss = torch.cat(losses, dim=1)
-        #loss = torch.sum(torch.stack([weight * current_loss for weight, current_loss in zip(self.loss_weights, losses)]), dim=1) #errore
+
         return loss
 
 

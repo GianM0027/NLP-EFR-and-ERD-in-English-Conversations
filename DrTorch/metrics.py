@@ -816,7 +816,7 @@ class Recall(SingleHeadMetric):
             confusion_matrix[predicted_id, target_id] += 1
 
         tp = np.sum(np.diag(confusion_matrix))
-        fn = np.sum(confusion_matrix, axis=0) - tp
+        fn = np.sum(np.sum(confusion_matrix, axis=0)) - tp
 
         self.tp += tp
         self.fn += fn
@@ -969,7 +969,7 @@ class Precision(SingleHeadMetric):
             confusion_matrix[predicted_id, target_id] += 1
 
         tp = np.sum(np.diag(confusion_matrix))
-        fp = np.sum(confusion_matrix, axis=1) - tp
+        fp = np.sum(np.sum(confusion_matrix, axis=1)) - tp
 
         self.tp += tp
         self.fp += fp

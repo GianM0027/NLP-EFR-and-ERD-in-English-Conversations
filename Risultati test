@@ -1,0 +1,71 @@
+
+SEED DELLE ESECUZIONI --> ancora 42, sempre
+
+##############################################################################################################
+####################    CLS all'inizio di ogni frase invece che a inizio dialogo    ##########################
+
+NO SPEAKER:
+emotions F1 a inizio training: 0.31781454253442
+triggers F1 a inizio training: 0.546869906891933
+
+emotions F1 dopo 6 epoche: 0.397655514971359
+triggers F1 dopo 6 epoche: 0.452217648883609
+
+
+CON SPEAKERS:
+emotions F1 a inizio training: 0.256253782780491
+triggers F1 a inizio training: 0.571547139423611
+
+emotions F1 dopo 6 epoche: 0.365639745118752
+triggers F1 dopo 6 epoche: 0.613461381390267
+
+
+CON SPEAKER E LINEAR LAYER AGGIUNTIVO (da 512):
+emotions F1 a inizio training: 0.358420089631834
+triggers F1 a inizio training: 0.489194671607462
+
+emotions F1 dopo 6 epoche: 0.398655886368746
+triggers F1 dopo 6 epoche: 0.543350409214008
+
+##############################################################################################################
+##############################################################################################################
+##############################################################################################################
+##############################################################################################################
+##############################################################################################################
+###################    CLS all'inizio di ogni dialogo (concettualmente più giusto?)    #######################
+
+CON SPEAKER E CLS IN POSIZIONI GIUSTE (no pesi):
+emotions F1 a inizio training: 0.296031233665951
+triggers F1 a inizio training: 0.545299426130769
+
+emotions F1 dopo 6 epoche: 0.347816715874877
+triggers F1 dopo 6 epoche: 0.420490221702411
+
+
+CON SPEAKER E CLS IN POSIZIONI GIUSTE (emotion: 0.65/ triggers: 0.35):
+emotions F1 a inizio training: 0.263610382307591
+triggers F1 a inizio training: 0.539729952038716
+
+emotions F1 dopo 6 epoche: 0.375031700713062
+triggers F1 dopo 6 epoche: 0.603563776258877
+
+emotions F1 dopo 10 epoche: 0.418586080483474
+triggers F1 dopo 10 epoche: 0.617924622326031
+
+##############################################################################################################
+##############################################################################################################
+##############################################################################################################
+##############################################################################################################
+##############################################################################################################
+##########################################   CONSIDERAZIONI    ###############################################
+
+Emotion e triggers overfittano a velocità diverse, usare l'early stopper non ha senso se monitoriamo la loro loss
+aggregata.
+
+Per risolvere problema dell'overfitting a velocità diverse, opzioni:
+- trovare un modo per bloccare il training delle singole head di classificazione separatamente (tipo early stopper parziale)
+- Usare qualche tecnica di regolarizzazione per rallentare l'apprendimento della head che classifica i triggers (dropout).
+- Giocare con i pesi delle due loss
+
+Bisogna capire come sono calcolati i trigger, perché mettere CLS all'inizio di ogni dialogo piuttosto che all'inizio di
+ogni frase ha senso solo se il trigger dipende dalle emozioni espresse precedentemente

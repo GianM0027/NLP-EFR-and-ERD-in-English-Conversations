@@ -332,6 +332,15 @@ def pad_utterances(sequences: List[torch.Tensor], pad_token_id):
     return torch.stack(padded_sequences)
 
 
+def remove_excessive_cls(input_ids, attention_mask, token_type_ids):
+    pad = torch.zeros(input_ids.shape[0]-1)
+
+    input_ids[1:, 0] = pad
+    attention_mask[1:, 0] = pad
+    token_type_ids[1:, 0] = pad
+
+    return input_ids, attention_mask, token_type_ids
+
 def tokenize_data(data: pd.Series, max_tokenized_length, tokenizer) -> Dict[str, torch.Tensor]:
     """
     Tokenize a pandas Series of text data.
@@ -353,10 +362,14 @@ def tokenize_data(data: pd.Series, max_tokenized_length, tokenizer) -> Dict[str,
                                                            padding="max_length",
                                                            max_length=max_tokenized_length,
                                                            return_tensors='pt')
+        #print(tokenized_utterances['input_ids'].shape)
+        input_ids, attention_mask, token_type_ids = remove_excessive_cls(tokenized_utterances['input_ids'],
+                                                                         tokenized_utterances['attention_mask'],
+                                                                         tokenized_utterances['token_type_ids'])
 
-        input_ids_list.append(tokenized_utterances['input_ids'])
-        attention_masks_list.append(tokenized_utterances['attention_mask'])
-        token_type_ids_list.append(tokenized_utterances['token_type_ids'])
+        input_ids_list.append(input_ids)
+        attention_masks_list.append(attention_mask)
+        token_type_ids_list.append(token_type_ids)
 
     padded_input_ids = pad_utterances(input_ids_list, tokenizer.pad_token_id)
     padded_attention_masks = pad_utterances(attention_masks_list, 0)

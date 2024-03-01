@@ -4,7 +4,7 @@ SEED DELLE ESECUZIONI --> ancora 42, sempre
 ##############################################################################################################
 ####################    CLS all'inizio di ogni frase invece che a inizio dialogo    ##########################
 
-NO SPEAKER:
+NO SPEAKER (BertFreezed):
 emotions F1 a inizio training: 0.31781454253442
 triggers F1 a inizio training: 0.546869906891933
 
@@ -12,7 +12,7 @@ emotions F1 dopo 6 epoche: 0.397655514971359
 triggers F1 dopo 6 epoche: 0.452217648883609
 
 
-CON SPEAKERS:
+CON SPEAKERS (BertFreezed):
 emotions F1 a inizio training: 0.256253782780491
 triggers F1 a inizio training: 0.571547139423611
 
@@ -20,7 +20,7 @@ emotions F1 dopo 6 epoche: 0.365639745118752
 triggers F1 dopo 6 epoche: 0.613461381390267
 
 
-CON SPEAKER E LINEAR LAYER AGGIUNTIVO (da 512):
+CON SPEAKER E LINEAR LAYER AGGIUNTIVO da 512 (BertFreezed):
 emotions F1 a inizio training: 0.358420089631834
 triggers F1 a inizio training: 0.489194671607462
 
@@ -34,7 +34,7 @@ triggers F1 dopo 6 epoche: 0.543350409214008
 ##############################################################################################################
 ###################    CLS all'inizio di ogni dialogo (concettualmente più giusto?)    #######################
 
-CON SPEAKER E CLS IN POSIZIONI GIUSTE (no pesi):
+CON SPEAKER E CLS IN POSIZIONI GIUSTE (BertFreezed):
 emotions F1 a inizio training: 0.296031233665951
 triggers F1 a inizio training: 0.545299426130769
 
@@ -42,7 +42,7 @@ emotions F1 dopo 6 epoche: 0.347816715874877
 triggers F1 dopo 6 epoche: 0.420490221702411
 
 
-CON SPEAKER E CLS IN POSIZIONI GIUSTE (emotion: 0.65/ triggers: 0.35):
+CON SPEAKER E CLS IN POSIZIONI GIUSTE (emotion: 0.65/ triggers: 0.35) (BertFreezed):
 emotions F1 a inizio training: 0.263610382307591
 triggers F1 a inizio training: 0.539729952038716
 
@@ -52,6 +52,15 @@ triggers F1 dopo 6 epoche: 0.603563776258877
 emotions F1 dopo 10 epoche: 0.418586080483474
 triggers F1 dopo 10 epoche: 0.617924622326031
 
+
+CON SPEAKER E CLS IN POSIZIONI GIUSTE (emotion: 0.65/ triggers: 0.35) (BertFull -> batch_size = 2):
+emotions F1 a inizio training: 0.408163126509894
+triggers F1 a inizio training: 0.620237158523691
+
+emotions F1 dopo 6 epoche: 0.563882316683445
+triggers F1 dopo 6 epoche: 0.611257008535481
+
+
 ##############################################################################################################
 ##############################################################################################################
 ##############################################################################################################
@@ -60,7 +69,10 @@ triggers F1 dopo 10 epoche: 0.617924622326031
 ##########################################   CONSIDERAZIONI    ###############################################
 
 Emotion e triggers overfittano a velocità diverse, usare l'early stopper non ha senso se monitoriamo la loro loss
-aggregata. Non so se lo facciamo, però teniamo conto di questo aspetto se dovessi usarlo.
+aggregata. Non so se lo facciamo, però teniamo conto di questo aspetto se dovessi usarlo. La velocità di overfitting
+delle due teste cambia anche in base alla configurazione del modello che stiamo usando (In bertFreed overfittano
+entrambe più lentamente, mentre in BertFull nonostante la media pesata nel calcolo della loss la trigger head
+overfitta lo stesso, forse aggiungere un dropout al FullBert aiuterebbe)
 
 Per risolvere problema dell'overfitting a velocità diverse, opzioni:
 - Usare qualche tecnica di regolarizzazione per rallentare l'apprendimento della head che classifica i triggers (dropout).
@@ -68,3 +80,6 @@ Per risolvere problema dell'overfitting a velocità diverse, opzioni:
 
 Bisogna capire come sono calcolati i trigger, perché mettere CLS all'inizio di ogni dialogo piuttosto che all'inizio di
 ogni frase ha senso solo se il trigger dipende dalle emozioni espresse precedentemente
+
+Attualmente non stiamo ottimizzando le metriche nella fase di fitting. Semplicemente minimizziamo la loss, che immagino
+si traduca in "massimizzare l'accuracy". Bisogna valutare il fatto di ottimizzare le metriche.

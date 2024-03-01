@@ -60,10 +60,9 @@ triggers F1 dopo 10 epoche: 0.617924622326031
 ##########################################   CONSIDERAZIONI    ###############################################
 
 Emotion e triggers overfittano a velocità diverse, usare l'early stopper non ha senso se monitoriamo la loro loss
-aggregata.
+aggregata. Non so se lo facciamo, però teniamo conto di questo aspetto se dovessi usarlo.
 
 Per risolvere problema dell'overfitting a velocità diverse, opzioni:
-- trovare un modo per bloccare il training delle singole head di classificazione separatamente (tipo early stopper parziale)
 - Usare qualche tecnica di regolarizzazione per rallentare l'apprendimento della head che classifica i triggers (dropout).
 - Giocare con i pesi delle due loss
 

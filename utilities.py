@@ -333,13 +333,14 @@ def pad_utterances(sequences: List[torch.Tensor], pad_token_id):
 
 
 def remove_redundant_cls(input_ids, attention_mask, token_type_ids):
-    pad = torch.zeros(input_ids.shape[0]-1)
+    pad = torch.zeros(input_ids.shape[0] - 1)
 
     input_ids[1:, 0] = pad
     attention_mask[1:, 0] = pad
     token_type_ids[1:, 0] = pad
 
     return input_ids, attention_mask, token_type_ids
+
 
 def tokenize_data(data: pd.Series, max_tokenized_length, tokenizer) -> Dict[str, torch.Tensor]:
     """

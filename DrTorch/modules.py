@@ -618,7 +618,7 @@ class TrainableModule(DrTorchModule):
                         log_params['train_' + 'loss' if criterion.name is train_key else train_key] = train_value
                         log_params['val_' + 'loss' if criterion.name is train_key else train_key] = val_value
 
-                    additional_interaction_data = interaction_function_with_wandb(self)
+                    additional_interaction_data = interaction_function_with_wandb(self) if interaction_function_with_wandb is not None else {}
                     wandb.log({**log_params, **additional_interaction_data})
 
                 if verbose > 0:

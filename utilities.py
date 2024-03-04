@@ -332,6 +332,15 @@ def pad_utterances(sequences: List[torch.Tensor], pad_token_id):
     return torch.stack(padded_sequences)
 
 
+def remove_redundant_cls(input_ids, attention_mask, token_type_ids):
+    pad = torch.zeros(input_ids.shape[0]-1)
+
+    input_ids[1:, 0] = pad
+    attention_mask[1:, 0] = pad
+    token_type_ids[1:, 0] = pad
+
+    return input_ids, attention_mask, token_type_ids
+
 def tokenize_data(data: pd.Series, max_tokenized_length, tokenizer) -> Dict[str, torch.Tensor]:
     """
     Tokenize a pandas Series of text data.
@@ -341,8 +350,6 @@ def tokenize_data(data: pd.Series, max_tokenized_length, tokenizer) -> Dict[str,
     :returns: A dictionary containing tokenized input, attention masks, and token type IDs.
 
     """
-
-    tokenizer = BertTokenizer.from_pretrained("local-bert")
 
     input_ids_list = []
     attention_masks_list = []
@@ -354,9 +361,13 @@ def tokenize_data(data: pd.Series, max_tokenized_length, tokenizer) -> Dict[str,
                                                            max_length=max_tokenized_length,
                                                            return_tensors='pt')
 
-        input_ids_list.append(tokenized_utterances['input_ids'])
-        attention_masks_list.append(tokenized_utterances['attention_mask'])
-        token_type_ids_list.append(tokenized_utterances['token_type_ids'])
+        input_ids, attention_mask, token_type_ids = remove_redundant_cls(tokenized_utterances['input_ids'],
+                                                                         tokenized_utterances['attention_mask'],
+                                                                         tokenized_utterances['token_type_ids'])
+
+        input_ids_list.append(input_ids)
+        attention_masks_list.append(attention_mask)
+        token_type_ids_list.append(token_type_ids)
 
     padded_input_ids = pad_utterances(input_ids_list, tokenizer.pad_token_id)
     padded_attention_masks = pad_utterances(attention_masks_list, 0)
@@ -393,3 +404,16 @@ def preprocess_labels(labels: pd.DataFrame) -> Dict[str, torch.Tensor]:
     encoded_triggers_tensor = encoded_triggers_tensor.view(-1, max_length, 3)
 
     return {'emotions': encoded_emotions_tensor, 'triggers': encoded_triggers_tensor}
+
+
+def create_directories(paths) -> None:
+    """
+    Creates al the directories listed in paths (excluding files at the end of it, if present)
+
+    :param paths: directories to create
+    :return: None
+    """
+    for path in paths:
+        directory = os.path.dirname(path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)

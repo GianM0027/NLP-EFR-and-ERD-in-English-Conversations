@@ -45,6 +45,31 @@ emotions F1 dopo 6 epoche: 0.411869032755343
 triggers F1 dopo 6 epoche: 0.581484665854188 (leggero overfitting nell'ultima epoca)
 
 
+NO SPEAKER (emotion: 1/ triggers: 0.375)(BertFreezed):
+emotions F1 a inizio training: 0.30896897280844
+triggers F1 a inizio training: 0.569543674218896
+
+emotions F1 dopo 6 epoche: 0.445148108733262
+triggers F1 dopo 6 epoche: 0.615729224766461
+
+emotions F1 dopo 15 epoche: 0.525177927565415
+triggers F1 dopo 15 epoche: 0.630012371118332
+
+
+NO SPEAKER (emotion: 1/ triggers: 0.375)(BertFull):
+emotions F1 a inizio training: 0.434187772778897
+triggers F1 a inizio training: 0.611406103726913
+
+emotions F1 dopo 6 epoche: 0.572900666251173
+triggers F1 dopo 6 epoche: 0.651206347835263
+
+emotions F1 dopo 10 epoche: 0.588201131260076
+triggers F1 dopo 10 epoche: 0.644205821962442
+
+emotions F1 dopo 15 epoche: 0.591197729576735
+triggers F1 dopo 15 epoche: 0.596238917097067
+
+
 CON SPEAKER (BertFreezed):
 emotions F1 a inizio training: 0.296031233665951
 triggers F1 a inizio training: 0.545299426130769
@@ -86,9 +111,3 @@ overfitta lo stesso, forse aggiungere un dropout al FullBert aiuterebbe)
 Per risolvere problema dell'overfitting a velocità diverse, opzioni:
 - Usare qualche tecnica di regolarizzazione per rallentare l'apprendimento della head che classifica i triggers (dropout).
 - Giocare con i pesi delle due loss
-
-Bisogna capire come sono calcolati i trigger, perché mettere CLS all'inizio di ogni dialogo piuttosto che all'inizio di
-ogni frase ha senso solo se il trigger dipende dalle emozioni espresse precedentemente
-
-Attualmente non stiamo ottimizzando le metriche nella fase di fitting. Semplicemente minimizziamo la loss, che immagino
-si traduca in "massimizzare l'accuracy". Bisogna valutare il fatto di ottimizzare le metriche.

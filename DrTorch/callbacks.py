@@ -149,5 +149,5 @@ class EarlyStopper:
 
         msg = "Early stopping activated"
         if self.restore_weights:
-            msg += ", best weights reloaded"
+            msg += ", best weights reloaded."
         return msg

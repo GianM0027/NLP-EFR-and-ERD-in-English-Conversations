@@ -386,7 +386,7 @@ class F1_Score(SingleHeadMetric):
         Initialize the F1 Score metric.
 
         :param name: Name of the metric.
-        :param mode: Computation mode for F1 Score ('none', 'macro', 'micro').
+        :param mode: Computation mode for F1 Score ('none', 'binary', 'macro', 'micro').
         :param pos_label: Used when mode='binary' to select the class you want to consider.
         :param num_classes: Number of classes. Required for computing F1 Score.
         :param classes_to_exclude: Classes to exclude from the computation. Defaults to None.
@@ -443,7 +443,7 @@ class F1_Score(SingleHeadMetric):
         elif self.mode == 'micro':
             result = 2 * np.sum(tps[self.classes_to_consider]) / np.sum(denominators[self.classes_to_consider])
         else:
-            raise ValueError("Undefined mode specified, available modes are 'none','macro' and 'micro'")
+            raise ValueError("Undefined mode specified, available modes are 'none', 'binary','macro' and 'micro'")
 
         return result
 
@@ -690,14 +690,16 @@ class Recall(SingleHeadMetric):
 
     Attributes:
         name (str): Name of the metric.
+        mode (str): Computation mode for Recall ('none', 'binary', 'macro', 'micro').
+        pos_label (int): Used when mode='binary' to select the class you want to consider.
         num_classes (int): Number of classes in the classification task.
         classes_to_exclude (list[int] or np.ndarray[int]): Classes to exclude from the computation.
         pred_transform (Optional[Callable]): A transformation function for mapping the model output into a suitable
                                               metric input.
         target_transform (Optional[Callable]): A transformation function for mapping the target labels into a suitable
                                                 metric input.
-        tp (int): True positives.
-        fn (int): False negatives.
+        tps (int): True positives.
+        fns (int): False negatives.
 
     Methods:
         __init__(self, name: str = 'Accuracy', num_classes: int = None,
@@ -733,7 +735,9 @@ class Recall(SingleHeadMetric):
     """
 
     def __init__(self,
-                 name: str = 'Accuracy',
+                 name: str = 'Recall',
+                 mode: str = 'macro',
+                 pos_label: int = 1,
                  num_classes: int = None,
                  classes_to_exclude: Optional[List[int] | np.ndarray[int]] = None,
                  pred_transform: Optional[Callable] = None,
@@ -744,11 +748,13 @@ class Recall(SingleHeadMetric):
 
         :params name: Name of the metric.
         :params num_classes: Number of classes in the classification task.
+        :param mode: Computation mode for F1 Score ('none', 'binary', 'macro', 'micro').
+        :param pos_label: Used when mode='binary' to select the class you want to consider.
         :params classes_to_exclude: Classes to exclude from the computation.
         :params pred_transform: A transformation function for mapping the model output into a suitable
-                                               metric input.
+                                metric input.
         :params target_transform: A transformation function for mapping the target labels into a suitable
-                                                    metric input.
+                                  metric input.
         """
         super().__init__(name=name,
                          num_classes=num_classes,
@@ -756,9 +762,12 @@ class Recall(SingleHeadMetric):
                          target_transform=target_transform)
 
         self.classes_to_exclude = classes_to_exclude if classes_to_exclude else []
-        self.classes_to_consider = np.arange(self.num_classes)[~np.isin(np.arange(self.num_classes), self.classes_to_exclude)]
-        self.tp = 0
-        self.fn = 0
+        self.classes_to_consider = np.arange(self.num_classes)[
+            ~np.isin(np.arange(self.num_classes), self.classes_to_exclude)]
+        self.mode = mode
+        self.pos_label = pos_label
+        self.tps = np.zeros((self.num_classes,))
+        self.fns = np.zeros((self.num_classes,))
 
     def __call__(self,
                  predicted_classes: torch.Tensor,
@@ -775,21 +784,32 @@ class Recall(SingleHeadMetric):
 
         """
 
-        tp, fn = self.update_state(predicted_classes, target_classes)
+        tps, fns = self.update_state(predicted_classes, target_classes)
 
         if not accumulate_statistic:
             self.reset_state()
 
         eps = np.finfo(float).eps
-        denominator = tp + fn + eps
+        denominators = tps + fns + eps
 
-        recall = tp / denominator
+        recalls = tps / denominators
 
-        return recall
+        if self.mode == 'none':
+            result = recalls[self.classes_to_consider]
+        elif self.mode == 'binary':
+            result = recalls[self.pos_label]
+        elif self.mode == 'macro':
+            result = np.mean(recalls)
+        elif self.mode == 'micro':
+            result = np.sum(tps[self.classes_to_consider]) / (np.sum(tps[self.classes_to_consider] + fns[self.classes_to_consider]))
+        else:
+            raise ValueError("Undefined mode specified, available modes are 'none', 'binary','macro' and 'micro'")
+
+        return result
 
     def update_state(self,
                      predicted_classes: torch.Tensor,
-                     target_classes: torch.Tensor) -> Tuple[Float, Float]:
+                     target_classes: torch.Tensor) -> Tuple[np.array, np.array]:
         """
         Update the internal state of the Recall Score metric.
 
@@ -815,13 +835,13 @@ class Recall(SingleHeadMetric):
         for predicted_id, target_id in zip(predicted_classes, target_classes):
             confusion_matrix[predicted_id, target_id] += 1
 
-        tp = np.sum(np.diag(confusion_matrix))
-        fn = np.sum(np.sum(confusion_matrix, axis=0)) - tp
+        tps = np.diag(confusion_matrix)
+        fns = np.sum(confusion_matrix, axis=0) - tps
 
-        self.tp += tp
-        self.fn += fn
+        self.tps += tps
+        self.fns += fns
 
-        return tp, fn
+        return tps, fns
 
     def reset_state(self) -> None:
         """
@@ -831,8 +851,8 @@ class Recall(SingleHeadMetric):
 
         """
 
-        self.tp = 0
-        self.fn = 0
+        self.tps = np.zeros((self.num_classes,))
+        self.fns = np.zeros((self.num_classes,))
 
     def get_result(self) -> float:
         """
@@ -843,8 +863,21 @@ class Recall(SingleHeadMetric):
         """
 
         eps = np.finfo(float).eps
+        denominators = 2 * self.tps + self.fns + eps
+        recalls = self.tps / denominators
 
-        return self.tp / (self.tp + self.fn + eps)
+        if self.mode == 'none':
+            result = recalls[self.classes_to_consider]
+        elif self.mode == 'binary':
+            result = recalls[self.pos_label]
+        elif self.mode == 'macro':
+            result = np.mean(recalls)
+        elif self.mode == 'micro':
+            result = np.sum(self.tps[self.classes_to_consider]) / (np.sum(self.tps[self.classes_to_consider]) + np.sum(self.fns[self.classes_to_consider]))
+        else:
+            raise ValueError("Undefined mode specified, available modes are 'none', 'binary','macro' and 'micro'")
+
+        return result
 
 
 class Precision(SingleHeadMetric):
@@ -853,14 +886,16 @@ class Precision(SingleHeadMetric):
 
     Attributes:
         name (str): Name of the metric.
+        mode (str): Computation mode for Recall ('none', 'binary', 'macro', 'micro').
+        pos_label (int): Used when mode='binary' to select the class you want to consider.
         num_classes (int): Number of classes in the classification task.
         classes_to_exclude (list[int] or np.ndarray[int]): Classes to exclude from the computation.
         pred_transform (Optional[Callable]): A transformation function for mapping the model output into a suitable
                                              metric input.
         target_transform (Optional[Callable]): A transformation function for mapping the target labels into a suitable
                                                metric input.
-        tp (int): True positives.
-        fp (int): False positives.
+        tps (int): True positives.
+        fps (int): False positives.
 
     Methods:
         __init__(self, name: str = 'Accuracy', num_classes: int = None,
@@ -897,11 +932,26 @@ class Precision(SingleHeadMetric):
     """
 
     def __init__(self,
-                 name: str = 'Accuracy',
+                 name: str = 'Precision',
+                 mode: str = 'macro',
+                 pos_label: int = 1,
                  num_classes: int = None,
                  classes_to_exclude: Optional[List[int] | np.ndarray[int]] = None,
                  pred_transform: Optional[Callable] = None,
                  target_transform: Optional[Callable] = None):
+        """
+        Initialize the Recall metric.
+
+        :param name: Name of the metric.
+        :param num_classes: Number of classes in the classification task.
+        :param mode: Computation mode for F1 Score ('none', 'binary', 'macro', 'micro').
+        :param pos_label: Used when mode='binary' to select the class you want to consider.
+        :param classes_to_exclude: Classes to exclude from the computation.
+        :param pred_transform: A transformation function for mapping the model output into a suitable metric input.
+        :param target_transform: A transformation function for mapping the target labels into a suitable metric input.
+
+        """
+
         super().__init__(name=name,
                          num_classes=num_classes,
                          pred_transform=pred_transform,
@@ -910,8 +960,11 @@ class Precision(SingleHeadMetric):
         self.classes_to_exclude = classes_to_exclude if classes_to_exclude else []
         self.classes_to_consider = np.arange(self.num_classes)[
             ~np.isin(np.arange(self.num_classes), self.classes_to_exclude)]
-        self.tp = 0
-        self.fp = 0
+
+        self.mode = mode
+        self.pos_label = pos_label
+        self.tps = np.zeros((self.num_classes,))
+        self.fps = np.zeros((self.num_classes,))
 
     def __call__(self,
                  predicted_classes: torch.Tensor,
@@ -928,21 +981,32 @@ class Precision(SingleHeadMetric):
 
         """
 
-        tp, fp = self.update_state(predicted_classes, target_classes)
+        tps, fps = self.update_state(predicted_classes, target_classes)
 
         if not accumulate_statistic:
             self.reset_state()
 
         eps = np.finfo(float).eps
-        denominator = tp + fp + eps
+        denominator = tps + fps + eps
 
-        precision = tp / denominator
+        precision = tps / denominator
 
-        return precision
+        if self.mode == 'none':
+            result = precision[self.classes_to_consider]
+        elif self.mode == 'binary':
+            result = precision[self.pos_label]
+        elif self.mode == 'macro':
+            result = np.mean(precision)
+        elif self.mode == 'micro':
+            result = np.sum(tps[self.classes_to_consider]) / (np.sum(tps[self.classes_to_consider] + fps[self.classes_to_consider]))
+        else:
+            raise ValueError("Undefined mode specified, available modes are 'none', 'binary','macro' and 'micro'")
+
+        return result
 
     def update_state(self,
                      predicted_classes: torch.Tensor,
-                     target_classes: torch.Tensor) -> Tuple[Float, Float]:
+                     target_classes: torch.Tensor) -> Tuple[np.array, np.array]:
         """
         Update the internal state of the Precision Score metric.
 
@@ -968,13 +1032,13 @@ class Precision(SingleHeadMetric):
         for predicted_id, target_id in zip(predicted_classes, target_classes):
             confusion_matrix[predicted_id, target_id] += 1
 
-        tp = np.sum(np.diag(confusion_matrix))
-        fp = np.sum(np.sum(confusion_matrix, axis=1)) - tp
+        tps = np.diag(confusion_matrix)
+        fps = np.sum(confusion_matrix, axis=1) - tps
 
-        self.tp += tp
-        self.fp += fp
+        self.tps += tps
+        self.fps += fps
 
-        return tp, fp
+        return tps, fps
 
     def reset_state(self) -> None:
         """
@@ -984,8 +1048,8 @@ class Precision(SingleHeadMetric):
 
         """
 
-        self.tp = 0
-        self.fp = 0
+        self.tps = np.zeros((self.num_classes,))
+        self.fps = np.zeros((self.num_classes,))
 
     def get_result(self) -> float:
         """
@@ -995,5 +1059,18 @@ class Precision(SingleHeadMetric):
 
         """
         eps = np.finfo(float).eps
+        denominators = 2 * self.tps + self.fps + eps
+        recalls = self.tps / denominators
 
-        return self.tp / (self.tp + self.fp + eps)
+        if self.mode == 'none':
+            result = recalls[self.classes_to_consider]
+        elif self.mode == 'binary':
+            result = recalls[self.pos_label]
+        elif self.mode == 'macro':
+            result = np.mean(recalls)
+        elif self.mode == 'micro':
+            result = np.sum(self.tps[self.classes_to_consider]) / (np.sum(self.tps[self.classes_to_consider] + self.fps[self.classes_to_consider]))
+        else:
+            raise ValueError("Undefined mode specified, available modes are 'none', 'binary','macro' and 'micro'")
+
+        return result

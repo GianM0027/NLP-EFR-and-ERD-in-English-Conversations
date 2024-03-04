@@ -14,7 +14,8 @@
 
 
 """
-from collections import OrderedDict
+
+
 from typing import Union, Any, Dict, List, Tuple, Callable, Optional
 
 import wandb
@@ -30,6 +31,7 @@ import sys
 import torch
 import numpy as np
 
+from collections import OrderedDict
 from thop import profile, clever_format
 from IPython.lib.display import IFrame
 
@@ -172,7 +174,9 @@ class DrTorchModule(torch.nn.Module):
                 batch_size: int = -1,
                 verbose: bool = True):
         """
-        This method provides a custom summary of the neural network model, including details about each layer's input and output shapes, parameter count, and memory consumption. It also estimates the number of MAC (Multiply-Accumulate) operations.
+        This method provides a custom summary of the neural network model, including details about each layer's
+        input and output shapes, parameter count, and memory consumption. It also estimates the number
+        of MAC (Multiply-Accumulate) operations.
 
         :param input_data: Input data to the model. It could be a torch.Tensor, a list of torch.Tensors, or a dictionary of torch.Tensors.
         :param batch_size: Batch size for the input data. Default is -1, which will be inferred from the input data if possible.
@@ -233,17 +237,13 @@ class DrTorchModule(torch.nn.Module):
 
         input_data = self._to_device(input_data, self.device)
 
-        # Create properties
         summary = OrderedDict()
         hooks = []
 
-        # Register hook
         self.apply(register_hook)
 
-        # Make a forward pass
         _ = self(input_data)
 
-        # Remove hooks
         for h in hooks:
             h.remove()
 
@@ -319,6 +319,85 @@ class TrainableModule(DrTorchModule):
 
     def __init__(self):
         super(TrainableModule, self).__init__()
+        self.batch_result_str = None
+
+    def __print_batch_results(self,
+                              current_epoch: int,
+                              tot_num_epochs: int,
+                              current_iteration: int,
+                              iterations_per_epoch: int,
+                              criterion_name: str,
+                              loss: torch.Tensor,
+                              metrics_results: Dict[str, torch.Tensor]):
+        """
+        Print the results of the current batch.
+
+        :param current_epoch: The current epoch index.
+        :param tot_num_epochs: The total number of epochs.
+        :param current_iteration: The current iteration index within the epoch.
+        :param iterations_per_epoch: The total number of iterations within an epoch.
+        :param criterion_name: The name of the criterion used for training.
+        :param loss: The loss tensor for the current batch.
+        :param metrics_results: A dictionary containing the results of metrics for the current batch.
+
+        """
+        batch_result_str = f"\rEpoch: {current_epoch + 1}/{tot_num_epochs} Iterations: {current_iteration + 1}/{iterations_per_epoch} - {criterion_name}: {loss.item():.10f}"
+        for metric_name, metric_val in metrics_results.items():
+            batch_result_str += f" - {metric_name}: {metric_val:.10f}"
+
+        self.batch_result_str = batch_result_str
+        sys.stdout.write(batch_result_str)
+        sys.stdout.flush()
+
+    def __print_epoch_results(self,
+                              train_results: Dict[str, float],
+                              val_results: Dict[str, float],
+                              current_epoch: int,
+                              tot_num_epochs: int,
+                              training_time: float,
+                              verbose: int):
+        """
+        Print the results of the current epoch.
+
+        :param train_results: A dictionary containing the results of metrics for the training set.
+        :param val_results: A dictionary containing the results of metrics for the validation set.
+        :param current_epoch: The current epoch index.
+        :param tot_num_epochs: The total number of epochs.
+        :param training_time: The time taken for training the epoch.
+        :param verbose: The verbosity level. If 2, results are printed in a tabular format; otherwise, results are printed in a classic format.
+
+        """
+
+        sys.stdout.write("\r" + " " * (len(self.batch_result_str)) + "\r")
+        sys.stdout.flush()
+
+        if verbose == 2:
+            time_str = f"Time: {training_time:.4f}s"
+            epoch_str = f"Epoch {current_epoch + 1}/{tot_num_epochs}"
+            epoch_width = len(epoch_str)
+            max_metric_name_length = max(len(metric_name) for metric_name in train_results.keys())
+            num_separator = max_metric_name_length + 50
+            out_str = f"\r{'=' * num_separator}\n"
+            sys.stdout.write(f"{out_str}")
+            sys.stdout.flush()
+            out_str = f"\r{epoch_str}{time_str:>{num_separator - epoch_width - 1}}\n"
+            out_str += "=" * num_separator + "\n"
+            out_str += f"\r{'Metric/Loss':<{max_metric_name_length + 10}}{'Training':<25}{'Validation':<25}\n"
+            out_str += "-" * num_separator + "\n"
+            for (train_key, train_value), (val_key, val_value) in zip(train_results.items(), val_results.items()):
+                train_formatted = "{:.10f}".format(train_value)
+                val_formatted = "{:.10f}".format(val_value)
+                out_str += f"\r{train_key.capitalize():<{max_metric_name_length + 10}}{train_formatted:<25}{val_formatted:<25}\n"
+        else:
+            out_str = f"\r Epoch: {current_epoch + 1}/{tot_num_epochs} Time: {training_time:.4f}s"
+            for key, value in train_results.items():
+                out_str += f" - {key}: {value:.10f}"
+            for key, value in val_results.items():
+                out_str += f" - {'val_' + key}: {value:.10f}"
+            out_str += "\n\n\n"
+
+        sys.stdout.write(out_str)
+        sys.stdout.flush()
 
     def validate(self,
                  data_loader: torch.utils.data.DataLoader,
@@ -403,7 +482,7 @@ class TrainableModule(DrTorchModule):
             metrics: Optional[List[Metric | MultyHeadMetric]] = None,
             early_stopper: EarlyStopper = None,
             aggregate_loss_on_dataset: bool = True,
-            verbose: bool = True,
+            verbose: int = 1,
             interaction_with_wandb: bool = False,
             interaction_function_with_wandb: Callable = None) -> Dict[str, Dict[str, List[Any]]]:
         """
@@ -422,7 +501,7 @@ class TrainableModule(DrTorchModule):
                                           then the partial losses are reduced to get a unique loss for the epoch.
                                           In the first case, the result is more accurate, but more RAM is used.
                                           In the second case, the result is less accurate due to numerical approximation, and less RAM is used.
-        :param verbose: If true print the training process results.
+        :param verbose: If 0 the training loop is silent if 1 print the training process results and if 2 the training result are printed in a tabular way.
         :param interaction_with_wandb: If True, log metrics to WandB per epoch.
         :param interaction_function_with_wandb: A callable function to be executed per batch for interaction logging.
                                                 Note: This function has to produce a dictionary containing the multimedia data
@@ -507,21 +586,23 @@ class TrainableModule(DrTorchModule):
                             for head_metric_key, head_metric_result in metric_results.items():
                                 metrics_value[head_metric_key] = head_metric_result
 
-                    if verbose:
-                        out_str = f"\r Epoch: {epoch + 1}/{num_epochs} Iterations: {iteration + 1}/{iterations_per_epoch} - {criterion.name}: {loss.item()}"
-                        for metric_name, metric_val in metrics_value.items():
-                            out_str += f" - {metric_name}: {metric_val}"
+                    if verbose > 0:
+                        self.__print_batch_results(current_epoch=epoch,
+                                                   tot_num_epochs=num_epochs,
+                                                   current_iteration=iteration,
+                                                   iterations_per_epoch=iterations_per_epoch,
+                                                   criterion_name=criterion.name,
+                                                   loss=loss,
+                                                   metrics_results=metrics_value)
 
-                        sys.stdout.write(out_str)
-                        sys.stdout.flush()
-
-                train_results = self.validate(train_loader,
-                                              criterion,
-                                              metrics,
+                train_results = self.validate(data_loader=train_loader,
+                                              criterion=criterion,
+                                              metrics=metrics,
                                               aggregate_loss_on_dataset=aggregate_loss_on_dataset)
-                val_results = self.validate(val_loader,
-                                            criterion,
-                                            metrics,
+
+                val_results = self.validate(data_loader=val_loader,
+                                            criterion=criterion,
+                                            metrics=metrics,
                                             aggregate_loss_on_dataset=aggregate_loss_on_dataset)
 
                 end_time = time.time()
@@ -540,28 +621,24 @@ class TrainableModule(DrTorchModule):
                     additional_interaction_data = interaction_function_with_wandb(self)
                     wandb.log({**log_params, **additional_interaction_data})
 
-                if verbose:
-                    out_str = f"\r Epoch: {epoch + 1}/{num_epochs} Iterations: {iterations_per_epoch}/{iterations_per_epoch} Time: {np.round(end_time - start_time, decimals=3)}s"
-                    for key, value in train_results.items():
-                        out_str += f" - {key}: {np.round(value, 15)}"
-                    for key, value in val_results.items():
-                        out_str += f" - {'val_' + key}: {np.round(value, 15)}"
-
-                    sys.stdout.write("\r" + " " * len(out_str) + "\r")
-                    sys.stdout.flush()
-                    sys.stdout.write(out_str)
-                    sys.stdout.flush()
-                    print("\n\n")
+                if verbose > 0:
+                    self.__print_epoch_results(train_results=train_results,
+                                               val_results=val_results,
+                                               current_epoch=epoch,
+                                               tot_num_epochs=num_epochs,
+                                               training_time=end_time - start_time,
+                                               verbose=verbose)
 
                 if early_stopper and early_stopper(val_history[early_stopper.monitor], self):
-                    if verbose:
+                    if verbose > 0:
                         print(early_stopper.get_message())
                     break
+
         finally:
             if early_stopper and early_stopper.restore_weights:
                 early_stopper.delete_directory()
-        if verbose:
-            print("Train Completed")
+        if verbose > 0:
+            print("\nTrain Completed.")
 
         return {'train': train_history, 'val': val_history}
 

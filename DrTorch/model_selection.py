@@ -43,8 +43,8 @@ FIT_PARAMETER_TYPES = torch.utils.data.DataLoader | torch.utils.data.DataLoader 
                       OptimizerWrapper | int | Optional[EarlyStopper] | bool
 
 
-def grid_search_train_validation(train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame],
-                                 val_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame],
+def grid_search_train_validation(train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame] | Tuple[pd.Series, pd.Series],
+                                 val_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame] | Tuple[pd.Series, pd.Series],
                                  dataloader_builder: DataLoaderStrategy,
                                  shuffle: bool,
                                  model_hyperparameters_to_test: List[Dict[str, Any]],
@@ -96,8 +96,8 @@ def grid_search_train_validation(train_data: Tuple[torch.Tensor, torch.Tensor] |
 
 
 def randomized_search_train_validation(
-        train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame],
-        val_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame],
+        train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame] | Tuple[pd.Series, pd.Series],
+        val_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame] | Tuple[pd.Series, pd.Series],
         dataloader_builder: DataLoaderStrategy,
         shuffle: bool,
         model_hyperparameters_to_sample: Dict[str, Any],
@@ -170,8 +170,8 @@ def randomized_search_train_validation(
                            wandb_params=wandb_params)
 
 
-def collect_results(train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame],
-                    val_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame],
+def collect_results(train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame] | Tuple[pd.Series, pd.Series],
+                    val_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame] | Tuple[pd.Series, pd.Series],
                     dataloader_builder: DataLoaderStrategy,
                     iterator: Any,
                     shuffle: bool,
@@ -228,7 +228,7 @@ def collect_results(train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.Dat
             history_idx -= training_hyperparameters['early_stopper'].patience
 
         if wandb_params is not None and not any([flag in training_hyperparameters for flag in wandb_flags]):
-            warning_message = '''Warning: Wandb connection started without logging anything.Maybe you want to add some training hyperparameters wandb related:'''
+            warning_message = '''Warning: Wandb connection started without logging anything. Maybe you want to add some training hyperparameters wandb related:'''
             print('\n'.join([warning_message] + wandb_flags))
 
         total_hyperparameters = {**training_hyperparameters, **model_hyperparameters}
@@ -294,7 +294,7 @@ def collect_results(train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.Dat
             start_time = time.time()
             result = net.fit(train_loader=train_data_loader,
                              val_loader=val_data_loader,
-                             verbose=False,
+                             verbose=0,
                              **new_training_hyperparameters)
             end_time = time.time()
             fitting_times.append(end_time - start_time)

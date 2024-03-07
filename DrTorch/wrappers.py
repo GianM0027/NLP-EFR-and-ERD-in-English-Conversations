@@ -177,10 +177,22 @@ class MultyHeadCriterion(AbstractCriterion):
 
         losses = []
         for head_key, current_head_loss in self.loss_functions.items():
-            losses.append(current_head_loss(predicted_labels[head_key], target_labels[head_key]))
+            #print("x pre reshape", predicted_labels[head_key].shape)
+            #print("y pre reshape", target_labels[head_key].shape)
+            x = predicted_labels[head_key].reshape((predicted_labels[head_key].shape[0]*predicted_labels[head_key].shape[1], -1))
+            y = target_labels[head_key].reshape((target_labels[head_key].shape[0] * target_labels[head_key].shape[1], -1))
+            #losses.append(current_head_loss(predicted_labels[head_key], target_labels[head_key]))       # calcolo loss singola testa
+            losses.append(current_head_loss(x, y))        # calcolo loss singola testa
+            #print("x post reshape", x.shape)
+            #print("y post reshape", y.shape)
+
+            losses.append(current_head_loss(x, y))       # calcolo loss singola testa
+
+        #print('emotion loss:',losses[0].shape, 'trigger loss',losses[1].shape)
 
         losses = [weight * current_loss for weight, current_loss in zip(self.loss_weights, losses)]
-        loss = torch.cat(losses, dim=1)
+        loss = torch.cat(losses, dim=0)#dim=1 prima
+        #print(loss.shape)
 
         return loss
 

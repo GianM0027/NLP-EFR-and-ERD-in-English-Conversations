@@ -1,4 +1,4 @@
-from typing import Tuple, List, Optional, Dict
+from typing import Tuple, List, Optional, Dict, Any
 
 import os
 from IPython.core.display_functions import display
@@ -291,7 +291,7 @@ def retrieve_bert_initializers(bert_path: os.path) -> Tuple[BertModel, BertToken
     return model, tokenizer
 
 
-def find_max_encoded_utterance(tokenizer: BertTokenizer, data: pd.Series) -> int:
+def find_max_encoded_utterance(tokenizer: BertTokenizer, data: pd.Series) -> Tuple[int, int]:
     """
     Find the maximum length of encoded utterances in the given data.
 
@@ -305,6 +305,7 @@ def find_max_encoded_utterance(tokenizer: BertTokenizer, data: pd.Series) -> int
     tokenized_batch = tokenizer.batch_encode_plus(data.sum(),
                                                   padding=True,
                                                   return_tensors='pt')
+
     return tokenized_batch["input_ids"].shape[1]
 
 
@@ -314,15 +315,15 @@ def pad_utterances(sequences: List[torch.Tensor], pad_token_id):
 
     :param sequences: A list of PyTorch tensors representing sequences.
     :param pad_token_id: The ID of the padding token.
+    :param max_dialogue_length : The maximum length of a dialogues.
 
     :return: A PyTorch tensor containing padded sequences.
 
     """
-
-    max_list_length = max(seq.size(0) for seq in sequences)
+    max_dialogue_length = max(seq.size(0) for seq in sequences)
     padded_sequences = []
     for seq in sequences:
-        padding_needed = max_list_length - seq.size(0)
+        padding_needed = max_dialogue_length - seq.size(0)
         if padding_needed > 0:
             padding_tensor = torch.full((padding_needed, seq.size(1)), pad_token_id)
             padded_seq = torch.cat([seq, padding_tensor], dim=0)
@@ -343,7 +344,8 @@ def remove_redundant_cls(input_ids, attention_mask, token_type_ids):
     return input_ids, attention_mask, token_type_ids
 
 
-def tokenize_data(data: pd.Series, max_tokenized_length, tokenizer) -> Dict[str, torch.Tensor]:
+def tokenize_data(data: pd.Series, max_tokenized_length: int, max_dialogue_length: int, tokenizer) -> Dict[
+    str, torch.Tensor]:
     """
     Tokenize a pandas Series of text data.
 

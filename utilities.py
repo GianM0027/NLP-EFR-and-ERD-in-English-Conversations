@@ -23,7 +23,7 @@ def replace_nan_with_zero(lst: List) -> List:
 
     """
 
-    return [0.0 if np.isnan(x) else x for x in lst if np.isscalar(x)]
+    return [0.0 if pd.isna(x) else x for x in lst]
 
 
 def create_wordcloud(df: pd.DataFrame, my_class_index: str = 'WORD', f_sizes: tuple[int, int] = (10, 5)) -> None:
@@ -333,6 +333,7 @@ def pad_utterances(sequences: List[torch.Tensor], pad_token_id):
 
 
 def remove_redundant_cls(input_ids, attention_mask, token_type_ids):
+    # todo docs
     pad = torch.zeros(input_ids.shape[0] - 1)
 
     input_ids[1:, 0] = pad
@@ -418,3 +419,62 @@ def create_directories(paths) -> None:
         directory = os.path.dirname(path)
         if directory and not os.path.exists(directory):
             os.makedirs(directory, exist_ok=True)
+
+
+def compute_unrolled_f1(emotion_f1, trigger_f1, df, emotion_to_index):
+    """
+    Computes the F1 scores for emotions and triggers across the entire dataset after unrolling the predictions and targets.
+
+
+    :params emotion_f1: A function that computes the F1 score for emotions.
+    :params trigger_f1: A function that computes the F1 score for triggers.
+    :params df: The DataFrame containing the dataset.
+    :params emotion_to_index: A dictionary mapping emotions to their corresponding indices.
+
+    returns: - unrolled_emotion_f1: The F1 score for emotions after unrolling.
+             - unrolled_trigger_f1: The F1 score for triggers after unrolling.
+    """
+
+    unrolled_predicted_emotions = [emotion_to_index[emotion] for emotion in df['pred_emotions'].sum()]
+    unrolled_target_emotion = [emotion_to_index[emotion] for emotion in df['emotions'].sum()]
+
+    unrolled_predicted_triggers = df['pred_triggers'].sum()
+    unrolled_target_triggers = df['triggers'].sum()
+
+    unrolled_emotion_f1 = emotion_f1(predicted_classes=torch.tensor(unrolled_predicted_emotions, dtype=torch.int),
+                                     target_classes=torch.tensor(unrolled_target_emotion, dtype=torch.int))
+
+    unrolled_trigger_f1 = trigger_f1(predicted_classes=torch.tensor(unrolled_predicted_triggers, dtype=torch.int),
+                                     target_classes=torch.tensor(unrolled_target_triggers, dtype=torch.int))
+
+    return unrolled_emotion_f1, unrolled_trigger_f1
+
+
+def compute_f1_per_dialogues(emotion_f1, trigger_f1, df, emotion_to_index):
+    """
+    Computes the F1 scores for emotions and triggers per dialogue in the dataset.
+
+
+    :params emotion_f1: A function that computes the F1 score for emotions.
+    :params trigger_f1: A function that computes the F1 score for triggers.
+    :params df: The DataFrame containing the dataset.
+    :params emotion_to_index: A dictionary mapping emotions to their corresponding indices.
+
+    returns: DataFrame: A DataFrame containing the F1 scores for emotions and triggers per dialogue.
+    """
+
+    sequences_emotions_f1 = {}
+    sequences_triggers_f1 = {}
+    for dialog_id in df.index:
+        sequences_emotions_f1[dialog_id] = emotion_f1(
+            predicted_classes=torch.tensor([emotion_to_index[e] for e in df.loc[dialog_id]['pred_emotions']],
+                                           dtype=torch.int),
+            target_classes=torch.tensor([emotion_to_index[e] for e in df.loc[dialog_id]['emotions']], dtype=torch.int))
+
+        sequences_triggers_f1[dialog_id] = trigger_f1(
+            predicted_classes=torch.tensor(df.loc[dialog_id]['pred_triggers'], dtype=torch.int),
+            target_classes=torch.tensor(df.loc[dialog_id]['triggers'], dtype=torch.int))
+
+    return pd.DataFrame(data={'Emotion_f1': list(sequences_emotions_f1.values()),
+                              'Trigger_f1': list(sequences_triggers_f1.values())},
+                        index=list(sequences_emotions_f1.keys()))

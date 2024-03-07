@@ -7,9 +7,9 @@ class RandomClassifier:
     Random classifier
     """
 
-    def __init__(self, classes: list[str]):
-        self.classes = classes
-        self.num_classes = len(classes)
+    def __init__(self, emotions: list[str]):
+        self.emotions = emotions
+        self.n_emotions = len(emotions)
 
     def predict(self, test_df: pd.DataFrame) -> (list[list[str]], list[list[int]]):
         """
@@ -23,16 +23,12 @@ class RandomClassifier:
         triggers_predictions = []
 
         for index, row in test_df.iterrows():
-            # compute how many emotions and triggers to predict
             len_emotions = len(row["emotions"])
 
-            # randomly select classes from self.classes list
-            rand_emotions = [self.classes[np.random.randint(0, self.num_classes)] for _ in range(len_emotions)]
+            rand_emotions = [self.emotions[np.random.randint(0, self.n_emotions)] for _ in range(len_emotions)]
 
-            # randomly select 0 and 1s
-            rand_triggers = [np.random.randint(0, 2) for _ in range(len_emotions)]
+            rand_triggers = [float(np.random.randint(0, 2)) for _ in range(len_emotions)]
 
-            # append the random predictions
             emotion_predictions.append(rand_emotions)
             triggers_predictions.append(rand_triggers)
 

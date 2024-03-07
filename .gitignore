@@ -1,5 +1,6 @@
 .venv/
 .idea
+.weights_memory/
 local-bert/
 __pycache__
 DrTorch/__pycache__/

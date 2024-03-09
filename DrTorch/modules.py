@@ -23,7 +23,7 @@ import netron
 
 from .wrappers import Criterion, OptimizerWrapper, MultyHeadCriterion
 from .metrics import Metric, MultyHeadMetric, SingleHeadMetric
-from .callbacks import EarlyStopper
+from .callbacks import EarlyStopper, MultipleEarlyStoppers
 
 import time
 import sys
@@ -458,7 +458,6 @@ class TrainableModule(DrTorchModule):
 
                 for metric in metrics:
                     metric.update_state(outputs, labels)
-                #break
 
         results[criterion.name] = criterion.reduction_function(aggregated_losses).item()
 
@@ -481,7 +480,7 @@ class TrainableModule(DrTorchModule):
             optimizer: OptimizerWrapper,
             num_epochs: int,
             metrics: Optional[List[Metric | MultyHeadMetric]] = None,
-            early_stopper: EarlyStopper = None,
+            early_stopper: EarlyStopper | MultipleEarlyStoppers = None,
             aggregate_loss_on_dataset: bool = True,
             verbose: int = 1,
             interaction_with_wandb: bool = False,
@@ -595,7 +594,6 @@ class TrainableModule(DrTorchModule):
                                                    criterion_name=criterion.name,
                                                    loss=loss,
                                                    metrics_results=metrics_value)
-                    #break
 
                 train_results = self.validate(data_loader=train_loader,
                                               criterion=criterion,
@@ -631,7 +629,7 @@ class TrainableModule(DrTorchModule):
                                                training_time=end_time - start_time,
                                                verbose=verbose)
 
-                if early_stopper and early_stopper(val_history[early_stopper.monitor], self):
+                if early_stopper and early_stopper(val_history, self):
                     if verbose > 0:
                         print(early_stopper.get_message())
                     break

@@ -15,9 +15,8 @@
 
 """
 
-
 import os
-from typing import List
+from typing import List, Dict
 
 import torch
 import numpy as np
@@ -51,11 +50,11 @@ class EarlyStopper:
     """
 
     def __init__(self,
-                 monitor:str,
-                 patience:int = 1,
-                 delta:float = 0.0,
+                 monitor: str,
+                 patience: int = 1,
+                 delta: float = 0.0,
                  mode: str = 'min',
-                 restore_weights:bool = False,
+                 restore_weights: bool = False,
                  folder_name: str = '.weights_memory'):
         """
         Initialize an EarlyStopper object to monitor a specified metric or loss during training and perform early stopping.
@@ -78,11 +77,10 @@ class EarlyStopper:
         self.delta = delta
         self.mode = mode
         self.restore_weights = restore_weights
-        self.folder_name = folder_name
         self.counter = 0
-        self.hidden_directory = os.path.join(os.getcwd(), self.folder_name)
+        self.hidden_directory = os.path.join(os.getcwd(), folder_name)
 
-    def __call__(self, history_values: List[float], model_ptr) -> bool:
+    def __call__(self, history_values: Dict[str, List[float]], model_ptr) -> bool: # todo l'aggiunta del tipo di dato per mode_pt Trainable_module  crea un problema di importing circolari
         """
         Call method to check if early stopping criteria are met.
 
@@ -97,9 +95,11 @@ class EarlyStopper:
         self.counter += 1
         weights_path = os.path.join(self.hidden_directory, f'model_{self.counter}')
 
-        if len(history_values) > self.patience:
-            value_to_compare = history_values[-self.patience - 1]
-            list_to_compare = history_values[-self.patience:]
+        metric_to_monitor = history_values[self.monitor]
+
+        if len(metric_to_monitor) > self.patience:
+            value_to_compare = metric_to_monitor[-self.patience - 1]
+            list_to_compare = metric_to_monitor[-self.patience:]
             if self.mode == 'min':
                 stop_flag = value_to_compare < np.min(list_to_compare) + self.delta
             else:
@@ -112,7 +112,8 @@ class EarlyStopper:
                     model_ptr.load_state_dict(torch.load(previous_weights_path))
                 else:
                     torch.save(model_ptr.state_dict(), weights_path)
-                    os.remove(previous_weights_path)
+                    if os.path.exists(previous_weights_path):
+                        os.remove(previous_weights_path)
         else:
             torch.save(model_ptr.state_dict(), weights_path)
         return stop_flag
@@ -149,5 +150,129 @@ class EarlyStopper:
 
         msg = "Early stopping activated"
         if self.restore_weights:
-            msg += ", best weights reloaded."
+            msg += ", best weights reloaded"
+        return msg
+
+
+class MultipleEarlyStoppers:
+    """
+    Implements multiple early stoppers based on different monitored metrics during model training.
+    This class allows you to freeze separate parts of the network based on the different metrics being monitored.
+
+    Args:
+        stoppers (Dict[str, EarlyStopper]): A dictionary containing instances of EarlyStopper
+            with their associated names as keys.
+        layers_to_freeze (Dict[str, List[str]]): A dictionary specifying the layers to freeze
+            for each early stopper, with the early stopper names as keys and lists of layer names
+            as values.
+        restore_weights (bool, optional): Whether to restore the model weights to the best weights
+            when early stopping is activated. Defaults to False.
+        folder_name (str, optional): The name of the folder to store weights history. A hidden
+            directory is created within the project directory to store weights history.
+            Defaults to '.weights_memory'.
+
+    Attributes:
+        stoppers (Dict[str, EarlyStopper]): A dictionary containing instances of EarlyStopper
+            with their associated names as keys.
+        layers_to_freeze (Dict[str, List[str]]): A dictionary specifying the layers to freeze
+            for each early stopper, with the early stopper names as keys and lists of layer names
+            as values.
+        restore_weights (bool): Whether to restore the model weights to the best weights
+            when early stopping is activated.
+        hidden_directory (str): The path to the hidden directory to store weights history.
+        stop_flags (Dict[str, bool]): A dictionary storing the flags indicating whether early
+            stopping criteria are met for each early stopper.
+    """
+
+    def __init__(self,
+                 stoppers: Dict[str, EarlyStopper],
+                 layers_to_freeze: Dict[str, List[str]],
+                 restore_weights: bool = False,
+                 folder_name: str = '.weights_memory'):
+        """
+        Initializes a MultipleEarlyStoppers object to implement multiple early stoppers based on monitored metrics
+        during model training.
+
+       :params stoppers: A dictionary containing early stoppers, where keys are the names of
+                         the metrics being monitored and values are EarlyStopper instances.
+       :params layers_to_freeze: A dictionary containing layers to freeze for each head, where
+                                 keys are the names of the heads and values are lists of layer names.
+       :params restore_weights: If True, restores the model weights to the best weights when early
+                                stopping is activated. Defaults to False.
+       :params folder_name: The name of the folder to store weights history. Defaults to '.weights_memory'.
+
+        """
+
+        self.stoppers = stoppers
+        self.layers_to_freeze = layers_to_freeze
+        self.restore_weights = restore_weights
+
+        self.hidden_directory = os.path.join(os.getcwd(), folder_name)
+        self.stop_flags = {stopper.monitor: False for stopper in stoppers.values()}
+
+        for stopper in self.stoppers.values():
+            stopper.hidden_directory = self.hidden_directory
+            stopper.restore_weights = restore_weights
+
+    def __call__(self, history_values: Dict[str, List[float]], model_ptr) -> bool:
+        """
+        Checks if the early stopping criteria are met based on the provided history values.
+
+        :params history_values : A list containing the historical values of the monitored metric.
+        :params model_ptr: The eights are being monitored.
+
+        Returns:
+            bool: True if the early stopping criteria are met for all early stoppers, False otherwise.
+        """
+
+        for head_name, stopper in self.stoppers.items():
+            model_weights_copy = model_ptr.state_dict()
+            if not self.stop_flags[stopper.monitor] and stopper(history_values, model_ptr):
+                self.stop_flags[stopper.monitor] = True
+                for layer_name, param in model_ptr.named_parameters():
+                    if layer_name in self.layers_to_freeze[head_name]:
+                        param.requires_grad = False
+                        print(f'{layer_name} has been freezed')
+                        """if not all(self.stop_flags.values()):
+                            print('NThe training is continuing.')"""
+                    else:
+                        param.data.copy_(model_weights_copy[layer_name])
+
+        return all(self.stop_flags.values())
+
+    def create_directory(self) -> None:
+        """
+        Create a hidden directory to store weights history.
+        the directory was renamed by default as '.weights_memory'
+
+        :return: None
+
+        """
+
+        os.makedirs(self.hidden_directory)
+
+    def delete_directory(self) -> None:
+        """
+        Delete the directory and reset the counter.
+
+        :return: None
+
+        """
+
+        for stopper in self.stoppers.values():
+            stopper.counter = 0
+
+        shutil.rmtree(self.hidden_directory)
+
+    def get_message(self) -> str:
+        """
+        Get a message indicating that early stopping is activated, optionally with a note about restoring the best weights.
+
+        :return: A string message.
+
+        """
+
+        msg = "All the Early Stopper has been activated"
+        if self.restore_weights:
+            msg += ", best weights reloaded"
         return msg

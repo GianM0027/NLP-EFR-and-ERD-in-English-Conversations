@@ -15,10 +15,8 @@
 
 """
 
-
 from typing import Iterable, Optional, Callable, Any, Dict, List
 from abc import ABC
-
 
 import torch
 
@@ -73,7 +71,8 @@ class Criterion(AbstractCriterion):
     def __init__(self,
                  name: str,
                  loss_function: Callable,
-                 reduction_function: Optional[Callable] = None):
+                 reduction_function: Optional[Callable] = None,
+                 classes_weights: Optional[torch.Tensor] = None):
         """
         Initialize a custom loss criterion.
 
@@ -84,6 +83,7 @@ class Criterion(AbstractCriterion):
         """
         super().__init__(name=name, reduction_function=reduction_function)
         self.loss_function = loss_function
+        self.classes_weights = classes_weights
 
     def __call__(self,
                  predicted_labels: torch.Tensor | Any,
@@ -100,6 +100,8 @@ class Criterion(AbstractCriterion):
         """
 
         output = self.loss_function(predicted_labels, target_labels)
+        if self.classes_weights is not None:
+            output = output * self.classes_weights.unsqueeze(0)
 
         return output
 
@@ -177,22 +179,11 @@ class MultyHeadCriterion(AbstractCriterion):
 
         losses = []
         for head_key, current_head_loss in self.loss_functions.items():
-            #print("x pre reshape", predicted_labels[head_key].shape)
-            #print("y pre reshape", target_labels[head_key].shape)
-            x = predicted_labels[head_key].reshape((predicted_labels[head_key].shape[0]*predicted_labels[head_key].shape[1], -1))
-            y = target_labels[head_key].reshape((target_labels[head_key].shape[0] * target_labels[head_key].shape[1], -1))
-            #losses.append(current_head_loss(predicted_labels[head_key], target_labels[head_key]))       # calcolo loss singola testa
-            losses.append(current_head_loss(x, y))        # calcolo loss singola testa
-            #print("x post reshape", x.shape)
-            #print("y post reshape", y.shape)
-
-            losses.append(current_head_loss(x, y))       # calcolo loss singola testa
-
-        #print('emotion loss:',losses[0].shape, 'trigger loss',losses[1].shape)
+            losses.append(current_head_loss(predicted_labels=predicted_labels[head_key],
+                                            target_labels=target_labels[head_key]))
 
         losses = [weight * current_loss for weight, current_loss in zip(self.loss_weights, losses)]
-        loss = torch.cat(losses, dim=0)#dim=1 prima
-        #print(loss.shape)
+        loss = torch.cat(losses, dim=1)
 
         return loss
 

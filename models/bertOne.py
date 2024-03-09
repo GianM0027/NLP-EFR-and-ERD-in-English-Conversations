@@ -1,11 +1,9 @@
 from typing import Tuple, Dict
 
-import numpy as np
 
 from DrTorch.modules import TrainableModule
 
 import torch
-import math
 
 
 class BertOne(TrainableModule):
@@ -61,9 +59,11 @@ class BertOne(TrainableModule):
             for param in self.bert.parameters():
                 param.requires_grad = False
 
-        # Emotion and Trigger classifiers
         self.emotion_classifier = torch.nn.Linear(in_features=cls_input_size, out_features=n_emotions)
         self.trigger_classifier = torch.nn.Linear(in_features=cls_input_size, out_features=n_triggers)
+
+        torch.nn.init.xavier_normal_(self.emotion_classifier.weight)
+        torch.nn.init.xavier_normal_(self.trigger_classifier.weight)
 
     def __get_n_chunk(self, input_shape: torch.Size) -> int:
         """

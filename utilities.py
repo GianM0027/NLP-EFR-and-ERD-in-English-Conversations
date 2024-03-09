@@ -344,8 +344,7 @@ def remove_redundant_cls(input_ids, attention_mask, token_type_ids):
     return input_ids, attention_mask, token_type_ids
 
 
-def tokenize_data(data: pd.Series, max_tokenized_length: int, max_dialogue_length: int, tokenizer) -> Dict[
-    str, torch.Tensor]:
+def tokenize_data(data: pd.Series, max_tokenized_length: int,  tokenizer) -> Dict[str, torch.Tensor]:
     """
     Tokenize a pandas Series of text data.
 

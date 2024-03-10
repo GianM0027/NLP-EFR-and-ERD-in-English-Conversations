@@ -458,7 +458,7 @@ class TrainableModule(DrTorchModule):
 
                 for metric in metrics:
                     metric.update_state(outputs, labels)
-
+                break
         results[criterion.name] = criterion.reduction_function(aggregated_losses).item()
 
         for metric in metrics:
@@ -632,7 +632,6 @@ class TrainableModule(DrTorchModule):
                 if early_stopper and early_stopper(val_history, self):
                     if verbose > 0:
                         print(early_stopper.get_message())
-                    break
 
         finally:
             if early_stopper and early_stopper.restore_weights:

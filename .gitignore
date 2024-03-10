@@ -6,6 +6,7 @@ __pycache__
 DrTorch/__pycache__/
 models/__pycache__/git
 results/
+wandb/
 
 *.pyc
 *.onnx

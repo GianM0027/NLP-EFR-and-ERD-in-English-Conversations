@@ -74,7 +74,7 @@ class BertOne(TrainableModule):
             torch.nn.Linear(in_features=hidden_dim, out_features=n_triggers)
         )
 
-        self.__init_weights()
+        self.__init_classifier_weights()
 
     def __get_n_chunk(self, input_shape: torch.Size) -> int:
         """
@@ -127,7 +127,7 @@ class BertOne(TrainableModule):
         batch_n, n_sentence, n_token = shape
         return inputs.view((batch_n, n_sentence, -1))
 
-    def __init_weights(self):
+    def __init_classifier_weights(self):
         """
         Initializes the weights of the linear layers in the model using Xavier initialization.
 
@@ -140,9 +140,13 @@ class BertOne(TrainableModule):
 
         """
 
-        for m in self.modules():
-            if isinstance(m, torch.nn.Linear):
-                torch.nn.init.xavier_normal_(m.weight)
+        for name, module in self.named_children():
+            if name == 'emotion_classifier' or name == 'trigger_classifier':
+                for sub_name, sub_module in module.named_children():
+                    if isinstance(sub_module, torch.nn.Linear):
+                        torch.nn.init.xavier_normal_(sub_module.weight)
+                        if sub_module.bias is not None:
+                            torch.nn.init.constant_(sub_module.bias, 0.0)
 
     def forward(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         """

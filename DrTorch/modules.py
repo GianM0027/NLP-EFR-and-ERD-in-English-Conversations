@@ -458,7 +458,7 @@ class TrainableModule(DrTorchModule):
 
                 for metric in metrics:
                     metric.update_state(outputs, labels)
-                break
+
         results[criterion.name] = criterion.reduction_function(aggregated_losses).item()
 
         for metric in metrics:

@@ -236,14 +236,14 @@ class MultipleEarlyStoppers:
                 for layer_name, param in model_ptr.named_parameters():
                     if layer_name in self.layers_to_freeze[head_name]:
                         param.requires_grad = False
-                        out_str += (f'\n{layer_name} has been freezed because {stopper.monitor} '
+                        out_str += (f'{layer_name} has been freezed because {stopper.monitor} '
                                     f'is no more {"decreasing" if stopper.mode == "min" else "increasing"}\n')
                     else:
                         if self.restore_weights:
                             param.data.copy_(model_weights_copy[layer_name])
 
         if out_str != '':
-            print(out_str)
+            print('\n' + out_str)
             if not all(self.stop_flags.values()):
                 monitor_not_activated = [monitor for monitor, flag in self.stop_flags.items() if not flag]
                 monitor_not_activated = ", ".join(monitor_not_activated)

@@ -480,11 +480,11 @@ class TrainableModule(DrTorchModule):
             optimizer: OptimizerWrapper,
             num_epochs: int,
             metrics: Optional[List[Metric | MultyHeadMetric]] = None,
-            early_stopper: EarlyStopper | MultipleEarlyStoppers = None,
+            early_stopper: Optional[EarlyStopper | MultipleEarlyStoppers] = None,
             aggregate_loss_on_dataset: bool = True,
             verbose: int = 1,
             interaction_with_wandb: bool = False,
-            interaction_function_with_wandb: Callable = None) -> Dict[str, Dict[str, List[Any]]]:
+            interaction_function_with_wandb: Optional[Callable] = None) -> Dict[str, Dict[str, List[Any]]]:
         """
         Train the model.
 

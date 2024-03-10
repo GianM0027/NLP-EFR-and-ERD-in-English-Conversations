@@ -36,15 +36,17 @@ class BertOne(TrainableModule):
 
        """
 
-    def __init__(self, bert_model, cls_input_size, n_emotions, n_triggers, freeze_bert_weights=False):
+    def __init__(self, bert_model, cls_input_size, hidden_dim, n_emotions, n_triggers, freeze_bert_weights=False, name='FreezedBertOne'):
         """
         Initializes the BertFreezed module.
 
         :params bert_model: Pre-trained BERT model.
         :params cls_input_size: Size of the input for the classifier.
+        :params hidden_dim: Size of classifiers hidden spaces.
         :params n_emotions: Number of classes for emotion classification.
         :params n_triggers: Number of classes for trigger classification.
         :params freeze_bert_weights: If it is True the bert weights are freezed.
+        :params name: Name of the model.
 
         :returns:None
 
@@ -52,6 +54,7 @@ class BertOne(TrainableModule):
 
         super().__init__()
 
+        self.name = name
         self.bert = bert_model
         self.config = self.bert.config
 
@@ -59,11 +62,19 @@ class BertOne(TrainableModule):
             for param in self.bert.parameters():
                 param.requires_grad = False
 
-        self.emotion_classifier = torch.nn.Linear(in_features=cls_input_size, out_features=n_emotions)
-        self.trigger_classifier = torch.nn.Linear(in_features=cls_input_size, out_features=n_triggers)
+        self.emotion_classifier = torch.nn.Sequential(
+            torch.nn.Linear(in_features=cls_input_size, out_features=hidden_dim),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.Linear(in_features=hidden_dim, out_features=n_emotions)
+        )
 
-        torch.nn.init.xavier_normal_(self.emotion_classifier.weight)
-        torch.nn.init.xavier_normal_(self.trigger_classifier.weight)
+        self.trigger_classifier = torch.nn.Sequential(
+            torch.nn.Linear(in_features=cls_input_size, out_features=hidden_dim),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.Linear(in_features=hidden_dim, out_features=n_triggers)
+        )
+
+        self.__init_weights()
 
     def __get_n_chunk(self, input_shape: torch.Size) -> int:
         """
@@ -115,6 +126,23 @@ class BertOne(TrainableModule):
 
         batch_n, n_sentence, n_token = shape
         return inputs.view((batch_n, n_sentence, -1))
+
+    def __init_weights(self):
+        """
+        Initializes the weights of the linear layers in the model using Xavier initialization.
+
+        Xavier's initialization (also known as Glorot initialization) sets the initial weights of the neural network
+        layers in a way that ensures the activations neither vanish to zero nor explode to very large values during
+        forward propagation. This helps in stabilizing the training process and improving convergence.
+
+        For each module in the model, if it is an instance of a linear layer (`torch.nn.Linear`),
+        the weights of that layer are initialized using Xavier normal initialization.
+
+        """
+
+        for m in self.modules():
+            if isinstance(m, torch.nn.Linear):
+                torch.nn.init.xavier_normal_(m.weight)
 
     def forward(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         """

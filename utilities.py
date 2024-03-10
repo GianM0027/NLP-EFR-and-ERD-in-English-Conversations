@@ -13,11 +13,11 @@ import torch
 from transformers import BertModel, BertTokenizer
 
 
-def replace_nan_with_zero(lst: List) -> List:
+def replace_nan_with_zero(lst: List) -> List[float]:
     """
     Takes a list with NaN values and converts them to zero.
 
-    :param lst: original list
+    :param lst: original list.
 
     :return: the list with all the NaNs converted to zero
 
@@ -69,7 +69,7 @@ def split_dataset(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Data
     """
     Given a dataframe, return a (80, 10, 10) random split of its rows in 3 new dataframes
 
-    :param df: original dataframe to split
+    :param df: original dataframe to split.
 
     :return: train, validation and test sets (80, 10, 10), in this order.
 
@@ -77,14 +77,11 @@ def split_dataset(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Data
 
     df['index'] = df.index
 
-    # Shuffle the dataframe
     df_shuffled = df.sample(frac=1, replace=False)
 
-    # Calculate the indexes for splitting
     train_end = int(len(df_shuffled) * 0.8)
     val_end = int(len(df_shuffled) * 0.9)
 
-    # Split the data
     train_df = df_shuffled[:train_end]
     val_df = df_shuffled[train_end:val_end]
     test_df = df_shuffled[val_end:]
@@ -96,29 +93,31 @@ def split_dataset(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Data
     return train_df, val_df, test_df
 
 
-def plot_emotion_distribution(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.DataFrame) -> None:
+def plot_emotion_distribution(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.DataFrame, column_name, title) -> None:
     """
     Plot the distribution of emotions in the three datasets
 
-    :param train_df: training set
-    :param val_df: validation set
-    :param test_df: test set
+    :param train_df: training set.
+    :param val_df: validation set.
+    :param test_df: test set.
+    :param column_name: name of the column whose distributions you want to plot.
+    :param title: title.
 
     :return: None
 
     """
 
     plt.figure(figsize=(18, 6))
-    plt.suptitle("Emotions occurrence in the datasets")
+    plt.suptitle(title)
 
     datasets = [train_df, val_df, test_df]
     titles = ['Training Set', 'Validation Set', 'Test Set']
 
     for i, dataset in enumerate(datasets):
         plt.subplot(1, 3, i + 1)
-        flatten_emotions = [item for sublist in dataset["emotions"] for item in sublist]
-        emotion_values, emotion_counts = np.unique(flatten_emotions, return_counts=True)
-        plt.bar(emotion_values, emotion_counts)
+        flatten_values = [item for sublist in dataset[column_name] for item in sublist]
+        values, counts = np.unique(flatten_values, return_counts=True)
+        plt.bar(values, counts)
         plt.title(titles[i])
         plt.grid()
         plt.xticks(rotation=45)  # Rotate labels to avoid overlap
@@ -156,7 +155,7 @@ def plot_triggers_per_emotion(train_df: pd.DataFrame, val_df: pd.DataFrame, test
             if flatten_triggers[idx] == 1:
                 count_dict[flatten_emotions[idx]] += 1
 
-        plt.bar(count_dict.keys(), count_dict.values())
+        plt.bar(list(count_dict.keys()), list(count_dict.values()))
         plt.title(titles[i])
         plt.grid()
         plt.xticks(rotation=45)  # Rotate labels to avoid overlap
@@ -296,7 +295,6 @@ def find_max_encoded_utterance(tokenizer: BertTokenizer, data: pd.Series) -> Tup
     Find the maximum length of encoded utterances in the given data.
 
     :param tokenizer: The tokenizer object used for encoding.
-
     :param data: A  pd.Series of utterances.
 
     :return: The maximum length of encoded utterances.
@@ -315,7 +313,6 @@ def pad_utterances(sequences: List[torch.Tensor], pad_token_id):
 
     :param sequences: A list of PyTorch tensors representing sequences.
     :param pad_token_id: The ID of the padding token.
-    :param max_dialogue_length : The maximum length of a dialogues.
 
     :return: A PyTorch tensor containing padded sequences.
 
@@ -413,7 +410,7 @@ def create_directories(paths) -> None:
     """
     Creates al the directories listed in paths (excluding files at the end of it, if present)
 
-    :param paths: directories to create
+    :param paths: directories to create.
     :return: None
     """
     for path in paths:

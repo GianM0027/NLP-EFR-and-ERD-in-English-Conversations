@@ -112,8 +112,7 @@ class EarlyStopper:
                     model_ptr.load_state_dict(torch.load(previous_weights_path))
                 else:
                     torch.save(model_ptr.state_dict(), weights_path)
-                    if os.path.exists(previous_weights_path):
-                        os.remove(previous_weights_path)
+                    os.remove(previous_weights_path)
         else:
             torch.save(model_ptr.state_dict(), weights_path)
         return stop_flag
@@ -211,7 +210,7 @@ class MultipleEarlyStoppers:
         self.stop_flags = {stopper.monitor: False for stopper in stoppers.values()}
 
         for stopper in self.stoppers.values():
-            stopper.hidden_directory = self.hidden_directory
+            stopper.hidden_directory = os.path.join(self.hidden_directory, stopper.monitor)
             stopper.restore_weights = restore_weights
 
     def __call__(self, history_values: Dict[str, List[float]], model_ptr) -> bool:
@@ -221,22 +220,33 @@ class MultipleEarlyStoppers:
         :params history_values : A list containing the historical values of the monitored metric.
         :params model_ptr: The eights are being monitored.
 
-        Returns:
-            bool: True if the early stopping criteria are met for all early stoppers, False otherwise.
+        :returns: True if the early stopping criteria are met for all early stoppers, False otherwise.
+
         """
 
+        out_str = ''
+        model_weights_copy = model_ptr.state_dict()
+
         for head_name, stopper in self.stoppers.items():
-            model_weights_copy = model_ptr.state_dict()
+
             if not self.stop_flags[stopper.monitor] and stopper(history_values, model_ptr):
                 self.stop_flags[stopper.monitor] = True
+
                 for layer_name, param in model_ptr.named_parameters():
                     if layer_name in self.layers_to_freeze[head_name]:
                         param.requires_grad = False
-                        print(f'{layer_name} has been freezed')
-                        """if not all(self.stop_flags.values()):
-                            print('NThe training is continuing.')"""
+                        out_str += (f'{layer_name} has been freezed because {stopper.monitor} '
+                                    f'is no more {"decreasing" if stopper.mode == "min" else "increasing"}\n')
                     else:
                         param.data.copy_(model_weights_copy[layer_name])
+
+        if out_str != '':
+            print(out_str)
+            if not all(self.stop_flags.values()):
+                monitor_not_activated = [monitor for monitor, flag in self.stop_flags.items() if not flag]
+                monitor_not_activated = ", ".join(monitor_not_activated)
+                monitor_not_activated = ' and'.join(monitor_not_activated.rsplit(',', 1))
+                print(f'The training is continuing. Stopping criteria not reached for {monitor_not_activated}')
 
         return all(self.stop_flags.values())
 
@@ -248,8 +258,8 @@ class MultipleEarlyStoppers:
         :return: None
 
         """
-
-        os.makedirs(self.hidden_directory)
+        for stopper in self.stoppers.values():
+            stopper.create_directory()
 
     def delete_directory(self) -> None:
         """

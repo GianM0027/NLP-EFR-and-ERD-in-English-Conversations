@@ -51,7 +51,7 @@ def grid_search_train_validation(train_data: Tuple[torch.Tensor, torch.Tensor] |
                                  training_hyperparameters_to_test: List[Dict[str, FIT_PARAMETER_TYPES]],
                                  hyperparameters_key_to_save: List[str],
                                  device: str,
-                                 path_to_grid_search_results: str,
+                                 path_to_save_grid_search_results: str,
                                  seeds: Optional[List[int]] = None,
                                  save_loss_values: bool = False,
                                  wandb_params: Optional[Dict[str, str]] = None) -> pd.DataFrame:
@@ -67,7 +67,7 @@ def grid_search_train_validation(train_data: Tuple[torch.Tensor, torch.Tensor] |
     :param training_hyperparameters_to_test: A list of dictionaries, each specifying training hyperparameters to test.
     :param hyperparameters_key_to_save: A list of hyperparameter keys to save in the result dataframe.
     :param device: The device (e.g., 'cpu' or 'cuda:0') to run the model training on.
-    :param path_to_grid_search_results: Path to the file storing the grid search results.
+    :param path_to_save_grid_search_results: Path to the file storing the grid search results.
     :param seeds: List of the seeds for reproducibility of the results of the grid search.
     :param save_loss_values: If True save train and val loss values.
     :param wandb_params: Additional parameters for WandB integration(e.g {'project': project, 'entity': userName}).
@@ -89,7 +89,7 @@ def grid_search_train_validation(train_data: Tuple[torch.Tensor, torch.Tensor] |
                            shuffle=shuffle,
                            device=device,
                            hyperparameters_key_to_save=hyperparameters_key_to_save,
-                           path_to_results=path_to_grid_search_results,
+                           path_to_save_search_results=path_to_save_grid_search_results,
                            seeds=seeds,
                            save_loss_values=save_loss_values,
                            wandb_params=wandb_params)
@@ -105,7 +105,7 @@ def randomized_search_train_validation(
         hyperparameters_key_to_save: List[str],
         n_run: int,
         device: str,
-        path_to_randomized_search_results: str,
+        path_to_save_randomize_search_results: str,
         seeds: Optional[List[int]] = None,
         save_loss_values: bool = False,
         wandb_params: Optional[Dict[str, str]] = None) -> pd.DataFrame:
@@ -122,7 +122,7 @@ def randomized_search_train_validation(
     :param hyperparameters_key_to_save: List of hyperparameter names to save in the resulting DataFrame.
     :param n_run: Number of runs for the randomized search.
     :param device: Device on which to perform the training (e.g., 'cpu' or 'cuda:0').
-    :param path_to_randomized_search_results: path to the file storing the randomized search results.
+    :param path_to_save_randomize_search_results: path to the file storing the randomized search results.
     :param seeds: List of the seeds for reproducibility of the results of the grid search.
     :param save_loss_values: If True save train and val loss values.
     :param wandb_params: Additional parameters for WandB integration(e.g {'project': project, 'entity': userName}).
@@ -164,7 +164,7 @@ def randomized_search_train_validation(
                            shuffle=shuffle,
                            device=device,
                            hyperparameters_key_to_save=hyperparameters_key_to_save,
-                           path_to_results=path_to_randomized_search_results,
+                           path_to_save_search_results=path_to_save_randomize_search_results,
                            seeds=seeds,
                            save_loss_values=save_loss_values,
                            wandb_params=wandb_params)
@@ -177,7 +177,7 @@ def collect_results(train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.Dat
                     shuffle: bool,
                     device: str,
                     hyperparameters_key_to_save: List[str],
-                    path_to_results: str,
+                    path_to_save_search_results: str,
                     seeds: Optional[List[int]] = None,
                     save_loss_values: bool = False,
                     wandb_params: Optional[dict[str, str]] = None) -> pd.DataFrame:
@@ -191,7 +191,7 @@ def collect_results(train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.Dat
     :param shuffle: Boolean indicating whether to shuffle the data during training.
     :param device: The device on which the model should be trained ('cpu' or 'cuda').
     :param hyperparameters_key_to_save: List of hyperparameter keys to save in the results dataframe.
-    :param path_to_results: Path to store the results dataframe.
+    :param path_to_save_search_results: Path to store the results dataframe.
     :param seeds: List of seed values for reproducibility.
     :param save_loss_values: If True save train and val loss values.
     :param wandb_params: Additional parameters for WandB integration(e.g {'project': project, 'entity': userName}).
@@ -331,6 +331,6 @@ def collect_results(train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.Dat
 
     df = pd.DataFrame(data=dataframe_dict)
 
-    joblib.dump(df, path_to_results)
+    joblib.dump(df, path_to_save_search_results)
 
     return df

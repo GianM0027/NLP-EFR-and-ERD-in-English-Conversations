@@ -330,8 +330,23 @@ def pad_utterances(sequences: List[torch.Tensor], pad_token_id):
     return torch.stack(padded_sequences)
 
 
-def remove_redundant_cls(input_ids, attention_mask, token_type_ids):
-    # todo docs
+def remove_redundant_cls(input_ids:torch.Tensor, attention_mask:torch.Tensor, token_type_ids:torch.Tensor):
+    """
+    Removes the redundant [CLS] token from the input tensors.
+
+
+    :params input_ids (torch.Tensor): Tensor containing the input token IDs.
+    :params attention_mask (torch.Tensor): Tensor containing the attention mask.
+    :params token_type_ids (torch.Tensor): Tensor containing the token type IDs.
+
+    :returns:
+        tuple: A tuple containing the modified input tensors:
+            - input_ids (torch.Tensor): Tensor containing the input token IDs with the first [CLS] token removed.
+            - attention_mask (torch.Tensor): Tensor containing the attention mask with the first [CLS] token removed.
+            - token_type_ids (torch.Tensor): Tensor containing the token type IDs with the first [CLS] token removed.
+
+    """
+
     pad = torch.zeros(input_ids.shape[0] - 1)
 
     input_ids[1:, 0] = pad

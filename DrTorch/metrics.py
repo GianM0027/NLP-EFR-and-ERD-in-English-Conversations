@@ -222,14 +222,14 @@ class MultyHeadMetric(Metric):
     def __init__(self,
                  name: str,
                  metrics_functions: Dict[str, SingleHeadMetric],
-                 metric_weights: Optional[List[int]] = None,
+                 metric_weights: Optional[Dict[str, float]] = None,
                  aggregate_metrics_function: Optional[Callable] = None):
         """
         Initializes the multi-head metric with the provided metrics functions and optional parameters.
 
         :param name: The name of the multi-head metric.
         :param metrics_functions: A dictionary mapping head keys to metric constructor functions.
-        :param metric_weights: Optional list of weights for each metric when aggregating results.
+        :param metric_weights: Optional dictionary containing the weights for each metric.
         :param aggregate_metrics_function: Optional function for aggregating individual head metrics into a single score.
 
         """
@@ -315,9 +315,11 @@ class MultyHeadMetric(Metric):
                  an aggregate_metrics_function is specified.
 
         """
+
         if self.aggregate_metrics_function is not None:
             if self.metric_weights is not None:
-                weighted_metric_results = torch.tensor(self.metric_weights) * torch.tensor(list(results.values()))
+                weighted_metric_results = torch.tensor(
+                    [self.metric_weights[hed_key] * value for hed_key, value in results.items()])
                 results[self.name] = self.aggregate_metrics_function(weighted_metric_results).item()
             else:
                 results[self.name] = self.aggregate_metrics_function(torch.tensor(list(results.values()))).item()
@@ -390,8 +392,11 @@ class F1_Score(SingleHeadMetric):
         :param pos_label: Used when mode='binary' to select the class you want to consider.
         :param num_classes: Number of classes. Required for computing F1 Score.
         :param classes_to_exclude: Classes to exclude from the computation. Defaults to None.
-        :param pred_transform:
-        :param target_transform:
+        :param pred_transform: A transformation function for mapping the model output into a suitable metric input.
+                               If None, defaults to rounding for binary classification and argmax for multiclass.
+        :param target_transform: A transformation function for mapping the target labels into a suitable metric input.
+                                 If None and num_classes is not 2, defaults to argmax.
+
 
         **parent_params: Additional parameters to be passed to the parent class.
 
@@ -801,7 +806,8 @@ class Recall(SingleHeadMetric):
         elif self.mode == 'macro':
             result = np.mean(recalls)
         elif self.mode == 'micro':
-            result = np.sum(tps[self.classes_to_consider]) / (np.sum(tps[self.classes_to_consider] + fns[self.classes_to_consider]))
+            result = np.sum(tps[self.classes_to_consider]) / (
+                np.sum(tps[self.classes_to_consider] + fns[self.classes_to_consider]))
         else:
             raise ValueError("Undefined mode specified, available modes are 'none', 'binary','macro' and 'micro'")
 
@@ -873,7 +879,8 @@ class Recall(SingleHeadMetric):
         elif self.mode == 'macro':
             result = np.mean(recalls)
         elif self.mode == 'micro':
-            result = np.sum(self.tps[self.classes_to_consider]) / (np.sum(self.tps[self.classes_to_consider]) + np.sum(self.fns[self.classes_to_consider]))
+            result = np.sum(self.tps[self.classes_to_consider]) / (
+                        np.sum(self.tps[self.classes_to_consider]) + np.sum(self.fns[self.classes_to_consider]))
         else:
             raise ValueError("Undefined mode specified, available modes are 'none', 'binary','macro' and 'micro'")
 
@@ -998,7 +1005,8 @@ class Precision(SingleHeadMetric):
         elif self.mode == 'macro':
             result = np.mean(precision)
         elif self.mode == 'micro':
-            result = np.sum(tps[self.classes_to_consider]) / (np.sum(tps[self.classes_to_consider] + fps[self.classes_to_consider]))
+            result = np.sum(tps[self.classes_to_consider]) / (
+                np.sum(tps[self.classes_to_consider] + fps[self.classes_to_consider]))
         else:
             raise ValueError("Undefined mode specified, available modes are 'none', 'binary','macro' and 'micro'")
 
@@ -1069,7 +1077,8 @@ class Precision(SingleHeadMetric):
         elif self.mode == 'macro':
             result = np.mean(recalls)
         elif self.mode == 'micro':
-            result = np.sum(self.tps[self.classes_to_consider]) / (np.sum(self.tps[self.classes_to_consider] + self.fps[self.classes_to_consider]))
+            result = np.sum(self.tps[self.classes_to_consider]) / (
+                np.sum(self.tps[self.classes_to_consider] + self.fps[self.classes_to_consider]))
         else:
             raise ValueError("Undefined mode specified, available modes are 'none', 'binary','macro' and 'micro'")
 

@@ -145,9 +145,7 @@ class BertOne(TrainableModule):
             if name == 'emotion_classifier' or name == 'trigger_classifier':
                 for sub_name, sub_module in module.named_children():
                     if isinstance(sub_module, torch.nn.Linear):
-                        #torch.nn.init.xavier_normal_(sub_module.weight)
-                        torch.nn.init.kaiming_uniform_(sub_module.weight, a=0, mode='fan_in',
-                                                       nonlinearity='relu')
+                        torch.nn.init.kaiming_uniform_(sub_module.weight, a=0, mode='fan_in',nonlinearity='relu')
                         if sub_module.bias is not None:
                             torch.nn.init.constant_(sub_module.bias, 0.0)
 

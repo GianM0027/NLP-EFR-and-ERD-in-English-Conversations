@@ -72,7 +72,7 @@ class Criterion(AbstractCriterion):
                  name: str,
                  loss_function: Callable,
                  reduction_function: Optional[Callable] = None,
-                 classes_weights: Optional[torch.Tensor] = None):
+                 reshape_loss_input_f: Optional[Callable] = None):
         """
         Initialize a custom loss criterion.
 
@@ -81,9 +81,10 @@ class Criterion(AbstractCriterion):
                               In case of Pytorch loss function instantiated using reduction='none'.
         :param reduction_function: Specifies the reduction function method that you want to use
         """
+
         super().__init__(name=name, reduction_function=reduction_function)
         self.loss_function = loss_function
-        self.classes_weights = classes_weights
+        self.reshape_loss_input_f = reshape_loss_input_f
 
     def __call__(self,
                  predicted_labels: torch.Tensor | Any,
@@ -99,9 +100,11 @@ class Criterion(AbstractCriterion):
 
         """
 
+        if self.reshape_loss_input_f is not None:
+            predicted_labels = self.reshape_loss_input_f(predicted_labels)
+            target_labels = self.reshape_loss_input_f(target_labels)
+
         output = self.loss_function(predicted_labels, target_labels)
-        if self.classes_weights is not None:
-            output = output * self.classes_weights.unsqueeze(0)
 
         return output
 
@@ -147,14 +150,15 @@ class MultyHeadCriterion(AbstractCriterion):
     def __init__(self,
                  name: str,
                  loss_functions: Dict[str, Callable],
-                 loss_weights: List[int],
-                 reduction_function: Optional[Callable] = None):
+                 loss_weights: Dict[str, float],
+                 reduction_function: Optional[Callable] = None,
+                 aggregate_losses_f: Callable = torch.sum):
         """
        Initialize a multi-head loss criterion.
 
        :param name: A name for the multi-head criterion.
        :param loss_functions: A dictionary mapping head keys to loss functions.
-       :param loss_weights: List of weights for each loss when aggregating results.
+       :param loss_weights: Dictionary of weights for each loss when aggregating results.
        :param reduction_function: Optional function for aggregating individual head losses.
 
        """
@@ -162,6 +166,7 @@ class MultyHeadCriterion(AbstractCriterion):
         super().__init__(name=name, reduction_function=reduction_function)
         self.loss_functions = loss_functions
         self.loss_weights = loss_weights
+        self.aggregate_losses_f = aggregate_losses_f
 
     def __call__(self,
                  predicted_labels: Dict[str, torch.Tensor],
@@ -179,11 +184,15 @@ class MultyHeadCriterion(AbstractCriterion):
 
         losses = []
         for head_key, current_head_loss in self.loss_functions.items():
+
             losses.append(current_head_loss(predicted_labels=predicted_labels[head_key],
                                             target_labels=target_labels[head_key]))
 
-        losses = [weight * current_loss for weight, current_loss in zip(self.loss_weights, losses)]
-        loss = torch.cat(losses, dim=1)
+        if self.loss_weights is not None:
+            losses = [self.loss_weights[head_key] * current_loss for head_key, current_loss in zip(self.loss_functions.keys(), losses)]
+
+        losses = torch.stack(losses, dim=0)
+        loss = self.aggregate_losses_f(losses, dim=0)
 
         return loss
 

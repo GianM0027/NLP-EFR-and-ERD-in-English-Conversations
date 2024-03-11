@@ -4,7 +4,19 @@ import pandas as pd
 
 class RandomClassifier:
     """
-    Random classifier
+    Random Classifier.
+
+    This classifier performs random predictions for the 'emotions' and 'triggers' columns based on the provided list
+    of possible emotion values.
+
+    Attributes:
+        emotions (list[str]): A list of possible emotion values.
+        n_emotions (int): The number of possible emotion values.
+
+    Methods:
+        predict(test_df: pd.DataFrame) -> (list[list[str]], list[list[int]]):
+            Performs random predictions for the 'emotions' and 'triggers' columns in the test data.
+
     """
 
     def __init__(self, emotions: list[str]):

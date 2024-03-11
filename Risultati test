@@ -454,3 +454,30 @@ All the Early Stopper has been activated, best weights reloaded
 
 Train Completed.
 
+
+
+
+----------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------
+
+
+
+emotion_weight_criterion = 1    #insert the value that comes out from the grid
+trigger_weight_criterion = 0.4    #insert the value that comes out from the grid
+
+self.emotion_classifier = torch.nn.Sequential(
+torch.nn.Linear(in_features=cls_input_size, out_features=hidden_dim),
+torch.nn.ReLU(inplace=True),
+torch.nn.Linear(in_features=hidden_dim, out_features=n_emotions)
+)
+
+self.trigger_classifier = torch.nn.Sequential(
+torch.nn.Linear(in_features=cls_input_size, out_features=n_triggers)
+)
+
+
+'lr': 1e-3
+he
+patience 5
+

@@ -4,7 +4,23 @@ import pandas as pd
 
 class MajorityClassifier:
     """
-    Majority classifier
+    Majority Classifier.
+
+    This classifier predicts the majority emotion and trigger values observed in the training data for each instance
+    in the test data.
+
+    Attributes:
+        major_emotion (str): The majority emotion value observed in the training data.
+        major_trigger (str): The majority trigger value observed in the training data.
+
+    Methods:
+        fit(train_df: pd.DataFrame) -> None:
+            Fits the majority classifier to the training data by determining the majority emotion and trigger values
+            observed in the training data.
+
+        predict(test_df: pd.DataFrame) -> (list[list[str]], list[list[int]]):
+            Performs predictions based on the majority emotion and trigger values observed in the training data.
+
     """
 
     def __init__(self):
@@ -13,8 +29,16 @@ class MajorityClassifier:
 
     def fit(self, train_df: pd.DataFrame) -> None:
         """
-        #todo doc
+        Fits the majority classifier to the training data by determining the majority emotion and trigger values
+        observed in the training data.
+
+
+        :params train_df: The training DataFrame containing the 'emotions' and 'triggers' columns.
+
+        Returns: None
+
         """
+
         flatten_emotions = [item for sublist in train_df["emotions"] for item in sublist]
         flatten_triggers = [item for sublist in train_df["triggers"] for item in sublist]
 
@@ -26,11 +50,14 @@ class MajorityClassifier:
 
     def predict(self, test_df: pd.DataFrame) -> (list[list[str]], list[list[int]]):
         """
-        Performs a prediction based on the majority of values for columns "emotions" and "triggers"
+        Performs predictions based on the majority emotion and trigger values observed in the training data.
 
-        :param test_df: test set on which compute the predictions
-        :return: a tuple where the first element is a lists of lists containing the predicted emotion (strings), the
-        second element is a list of lists of 0 or 1s (int).
+        :params test_df: The test DataFrame on which to compute the predictions.
+
+        :returns:
+            tuple: A tuple containing:
+                - emotion_predictions (list[list[str]]): A list of lists containing the predicted emotion values (strings).
+                - triggers_predictions (list[list[int]]): A list of lists containing the predicted trigger values (0 or 1).
         """
         emotion_predictions = []
         triggers_predictions = []

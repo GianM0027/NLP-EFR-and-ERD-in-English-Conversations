@@ -1,855 +1,456 @@
+emotion_weight_criterion = 1    #insert the value that comes out from the grid
+trigger_weight_criterion = 0.4    #insert the value that comes out from the grid
 
-SEED DELLE ESECUZIONI --> ancora 42, sempre
+self.emotion_classifier = torch.nn.Sequential(
+torch.nn.Linear(in_features=cls_input_size, out_features=hidden_dim),
+torch.nn.ReLU(inplace=True),
+torch.nn.Linear(in_features=hidden_dim, out_features=n_emotions)
+)
 
-
-##############################################################################################################
-##############################################################################################################
-##############################################################################################################
-####################    CLS all'inizio di ogni frase invece che a inizio dialogo    ##########################
-
-NO SPEAKER (BertFreezed):
-emotions F1 a inizio training: 0.31781454253442
-triggers F1 a inizio training: 0.546869906891933
-
-emotions F1 dopo 6 epoche: 0.397655514971359
-triggers F1 dopo 6 epoche: 0.452217648883609
+self.trigger_classifier = torch.nn.Sequential(
+torch.nn.Linear(in_features=cls_input_size, out_features=n_triggers)
+)
 
 
-CON SPEAKERS (BertFreezed):
-emotions F1 a inizio training: 0.256253782780491
-triggers F1 a inizio training: 0.571547139423611
+'lr': 1e-3
+xavier si
+patience 3
 
-emotions F1 dopo 6 epoche: 0.365639745118752
-triggers F1 dopo 6 epoche: 0.613461381390267
-
-
-CON SPEAKER E LINEAR LAYER AGGIUNTIVO da 512 (BertFreezed):
-emotions F1 a inizio training: 0.358420089631834
-triggers F1 a inizio training: 0.489194671607462
-
-emotions F1 dopo 6 epoche: 0.398655886368746
-triggers F1 dopo 6 epoche: 0.543350409214008
+summary
+Emotion_f1                  0.4407672904             0.2732345742
+Triggers_f1                 0.4768363374             0.4160173780
 
 
 
-##############################################################################################################
-##############################################################################################################
-##############################################################################################################
-####################    CLS all'inizio di ogni dialogo (concettualmente più giusto)    #######################
-
-NO SPEAKER (emotion: 0.65/ triggers: 0.35)(BertFreezed):
-emotions F1 a inizio training: 0.310845833066838
-triggers F1 a inizio training: 0.555928575087981
-
-emotions F1 dopo 6 epoche: 0.411869032755343
-triggers F1 dopo 6 epoche: 0.581484665854188 (leggero overfitting nell'ultima epoca)
-
-
-NO SPEAKER (emotion: 1/ triggers: 0.375)(BertFreezed):
-emotions F1 a inizio training: 0.30896897280844
-triggers F1 a inizio training: 0.569543674218896
-
-emotions F1 dopo 6 epoche: 0.445148108733262
-triggers F1 dopo 6 epoche: 0.615729224766461
-
-emotions F1 dopo 15 epoche: 0.525177927565415
-triggers F1 dopo 15 epoche: 0.630012371118332
-
-
-NO SPEAKER (emotion: 1/ triggers: 0.375)(BertFull):
-emotions F1 a inizio training: 0.434187772778897
-triggers F1 a inizio training: 0.611406103726913
-
-emotions F1 dopo 6 epoche: 0.572900666251173
-triggers F1 dopo 6 epoche: 0.651206347835263
-
-emotions F1 dopo 10 epoche: 0.588201131260076
-triggers F1 dopo 10 epoche: 0.644205821962442
-
-emotions F1 dopo 15 epoche: 0.591197729576735
-triggers F1 dopo 15 epoche: 0.596238917097067
-
-
-CON SPEAKER (BertFreezed):
-emotions F1 a inizio training: 0.296031233665951
-triggers F1 a inizio training: 0.545299426130769
-
-emotions F1 dopo 6 epoche: 0.347816715874877
-triggers F1 dopo 6 epoche: 0.420490221702411
-
-
-CON SPEAKER (emotion: 0.65/ triggers: 0.35) (BertFreezed):
-emotions F1 a inizio training: 0.263610382307591
-triggers F1 a inizio training: 0.539729952038716
-
-emotions F1 dopo 6 epoche: 0.375031700713062
-triggers F1 dopo 6 epoche: 0.603563776258877
-
-emotions F1 dopo 10 epoche: 0.418586080483474
-triggers F1 dopo 10 epoche: 0.617924622326031
-
-
-CON SPEAKER (emotion: 0.65/ triggers: 0.35) (BertFull -> batch_size = 2):
-emotions F1 a inizio training: 0.408163126509894
-triggers F1 a inizio training: 0.620237158523691
-
-emotions F1 dopo 6 epoche: 0.563882316683445
-triggers F1 dopo 6 epoche: 0.611257008535481
-
-
-
-##############################################################################################################
-##############################################################################################################
-##########################################   CONSIDERAZIONI    ###############################################
-
-Emotion e triggers overfittano a velocità diverse, usare l'early stopper non ha senso se monitoriamo la loro loss
-aggregata. Non so se lo facciamo, però teniamo conto di questo aspetto se dovessi usarlo. La velocità di overfitting
-delle due teste cambia anche in base alla configurazione del modello che stiamo usando (In bertFreed overfittano
-entrambe più lentamente, mentre in BertFull nonostante la media pesata nel calcolo della loss la trigger head
-overfitta lo stesso, forse aggiungere un dropout al FullBert aiuterebbe)
-
-Per risolvere problema dell'overfitting a velocità diverse, opzioni:
-- Usare qualche tecnica di regolarizzazione per rallentare l'apprendimento della head che classifica i triggers (dropout).
-- Giocare con i pesi delle due loss
-
-########################################################################################################################
-###################################### freezed lr -5 batch_size 16 binary mode su trigger
 ====================================================================
-Epoch 1/25                                          Time: 600.9000s
+Epoch 1/25                                          Time: 603.1943s
 ====================================================================
 Metric/Loss                 Training                 Validation
 --------------------------------------------------------------------
-Agg_ce_loss                 11.5231943456            10.8011192608
-Agg_avg_f1                  0.3264609778             0.3292716586
-Emotion_f1                  0.3486645406             0.3544006849
-Triggers_f1                 0.3042574149             0.3041426324
-Agg_avg_accuracy            0.7413123152             0.6907003106
-Emotion_accuracy            0.7089973958             0.7605434783
-Triggers_accuracy           0.7736272345             0.6208571429
-Agg_avg_recall              0.2461654114             0.2462669126
-Emotion_recall              0.2587232375             0.2502341416
-Triggers_recall             0.2336075853             0.2422996836
-Agg_avg_precision           0.2570796032             0.2303078092
-Emotion_precision           0.2830010562             0.2460772466
-Triggers_precision          0.2311581501             0.2145383719
+Agg_ce_loss                 1.7836010947             2.1887192231
+Agg_avg_f1                  0.3782854540             0.2925026014
+Emotion_f1                  0.2797345707             0.1689878248
+Triggers_f1                 0.4768363374             0.4160173780
+Agg_avg_accuracy            0.3580286508             0.2945883038
+Emotion_accuracy            0.2086095075             0.1579866162
+Triggers_accuracy           0.5074477942             0.4311899913
+Agg_avg_recall              0.2162106071             0.1775345586
+Emotion_recall              0.1777841954             0.1177758597
+Triggers_recall             0.2546370189             0.2372932574
+Agg_avg_precision           0.2720490384             0.2402018166
+Emotion_precision           0.3225319024             0.2661270321
+Triggers_precision          0.2215661744             0.2142766012
 ====================================================================
-Epoch 2/25                                          Time: 603.3014s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.3243831943            10.6682949805
-Agg_avg_f1                  0.3584495788             0.3548657837
-Emotion_f1                  0.3847490016             0.3895923765
-Triggers_f1                 0.3321501560             0.3201391910
-Agg_avg_accuracy            0.7482964135             0.6604704969
-Emotion_accuracy            0.7176953125             0.7683695652
-Triggers_accuracy           0.7788975144             0.5525714286
-Agg_avg_recall              0.2688610681             0.2646083130
-Emotion_recall              0.2976058584             0.2829028603
-Triggers_recall             0.2401162778             0.2463137657
-Agg_avg_precision           0.2738468863             0.2597676925
-Emotion_precision           0.3117050308             0.3045650792
-Triggers_precision          0.2359887418             0.2149703057
-====================================================================
-Epoch 3/25                                          Time: 603.2253s
+Epoch 2/25                                          Time: 601.4069s
 ====================================================================
 Metric/Loss                 Training                 Validation
 --------------------------------------------------------------------
-Agg_ce_loss                 11.2205544399            10.5962988281
-Agg_avg_f1                  0.3839950871             0.3587715925
-Emotion_f1                  0.4068251257             0.3953801994
-Triggers_f1                 0.3611650485             0.3221629855
-Agg_avg_accuracy            0.7386323929             0.6300621118
-Emotion_accuracy            0.7232942708             0.7686956522
-Triggers_accuracy           0.7539705149             0.4914285714
-Agg_avg_recall              0.2818995047             0.2669527286
-Emotion_recall              0.3124969341             0.2902227657
-Triggers_recall             0.2513020754             0.2436826915
-Agg_avg_precision           0.2790663808             0.2627457679
-Emotion_precision           0.3234238545             0.3110576851
-Triggers_precision          0.2347089070             0.2144338508
+Agg_ce_loss                 1.7086208598             2.2071427213
+Agg_avg_f1                  0.2305964577             0.1762833799
+Emotion_f1                  0.2722597794             0.1724148826
+Triggers_f1                 0.1889331359             0.1801518771
+Agg_avg_accuracy            0.2033532891             0.1659877800
+Emotion_accuracy            0.2069346447             0.1373290660
+Triggers_accuracy           0.1997719336             0.1946464940
+Agg_avg_recall              0.1816290970             0.1495348912
+Emotion_recall              0.1811466926             0.1211203264
+Triggers_recall             0.1821115013             0.1779494560
+Agg_avg_precision           0.2397120634             0.2240704922
+Emotion_precision           0.2672145183             0.2363173785
+Triggers_precision          0.2122096084             0.2118236060
 ====================================================================
-Epoch 4/25                                          Time: 603.2573s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.1490825858            10.5522378651
-Agg_avg_f1                  0.4037651310             0.3617108136
-Emotion_f1                  0.4381173365             0.4044399725
-Triggers_f1                 0.3694129255             0.3189816548
-Agg_avg_accuracy            0.7527381952             0.6254145963
-Emotion_accuracy            0.7330598958             0.7705434783
-Triggers_accuracy           0.7724164946             0.4802857143
-Agg_avg_recall              0.2910570745             0.2689101791
-Emotion_recall              0.3312488204             0.2958824715
-Triggers_recall             0.2508653286             0.2419378867
-Agg_avg_precision           0.2850029738             0.2685278619
-Emotion_precision           0.3310166916             0.3234238876
-Triggers_precision          0.2389892560             0.2136318363
-====================================================================
-Epoch 5/25                                          Time: 604.6319s
+Epoch 3/25                                          Time: 602.1169s
 ====================================================================
 Metric/Loss                 Training                 Validation
 --------------------------------------------------------------------
-Agg_ce_loss                 11.0904964336            10.5325525676
-Agg_avg_f1                  0.4129001341             0.3650720594
-Emotion_f1                  0.4490068868             0.4101139984
-Triggers_f1                 0.3767933815             0.3200301205
-Agg_avg_accuracy            0.7592312492             0.6261847826
-Emotion_accuracy            0.7303776042             0.7683695652
-Triggers_accuracy           0.7880848942             0.4840000000
-Agg_avg_recall              0.2940780624             0.2715589829
-Emotion_recall              0.3379189194             0.3005929301
-Triggers_recall             0.2502372053             0.2425250358
-Agg_avg_precision           0.2889176807             0.2713974318
-Emotion_precision           0.3345254668             0.3288977999
-Triggers_precision          0.2433098946             0.2138970637
+Agg_ce_loss                 1.6596111155             2.1848924314
+Agg_avg_f1                  0.4392969295             0.3177156030
+Emotion_f1                  0.4407672904             0.2732345742
+Triggers_f1                 0.4378265686             0.3621966319
+Agg_avg_accuracy            0.4017532606             0.3172825138
+Emotion_accuracy            0.3514717411             0.2685481525
+Triggers_accuracy           0.4520347801             0.3660168752
+Agg_avg_recall              0.2434914201             0.1945842397
+Emotion_recall              0.2381762349             0.1636999084
+Triggers_recall             0.2488066053             0.2254685711
+Agg_avg_precision           0.2897902237             0.2612747443
+Emotion_precision           0.3572918749             0.3099685064
+Triggers_precision          0.2222885724             0.2125809822
 ====================================================================
-Epoch 6/25                                          Time: 603.5754s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.0447906533            10.5172781684
-Agg_avg_f1                  0.4233304839             0.3697973125
-Emotion_f1                  0.4559790534             0.4126847834
-Triggers_f1                 0.3906819144             0.3269098417
-Agg_avg_accuracy            0.7373908771             0.6047018634
-Emotion_accuracy            0.7309244792             0.7682608696
-Triggers_accuracy           0.7438572751             0.4411428571
-Agg_avg_recall              0.3003512662             0.2717338919
-Emotion_recall              0.3400602233             0.3034569740
-Triggers_recall             0.2606423092             0.2400108099
-Agg_avg_precision           0.2882307587             0.2740559033
-Emotion_precision           0.3393632815             0.3324655607
-Triggers_precision          0.2370982359             0.2156462459
-====================================================================
-Epoch 7/25                                          Time: 603.1272s
+Epoch 4/25                                          Time: 602.9159s
 ====================================================================
 Metric/Loss                 Training                 Validation
 --------------------------------------------------------------------
-Agg_ce_loss                 11.0047884543            10.5069992614
-Agg_avg_f1                  0.4424852876             0.3730891857
-Emotion_f1                  0.4883425098             0.4207082858
-Triggers_f1                 0.3966280654             0.3254700855
-Agg_avg_accuracy            0.7445434079             0.6038493789
-Emotion_accuracy            0.7414192708             0.7714130435
-Triggers_accuracy           0.7476675450             0.4362857143
-Agg_avg_recall              0.3097869116             0.2732444019
-Emotion_recall              0.3578155197             0.3074094658
-Triggers_recall             0.2617583035             0.2390793381
-Agg_avg_precision           0.2902153168             0.2744553845
-Emotion_precision           0.3420925357             0.3335953775
-Triggers_precision          0.2383380979             0.2153153915
+Agg_ce_loss                 1.6918050106             2.2398049709
+Agg_avg_f1                  0.2797145190             0.2155595521
+Emotion_f1                  0.2655452739             0.1743029251
+Triggers_f1                 0.2938837641             0.2568161791
+Agg_avg_accuracy            0.2356033070             0.1926098342
+Emotion_accuracy            0.1771791034             0.1265638638
+Triggers_accuracy           0.2940275105             0.2586558045
+Agg_avg_recall              0.1946084026             0.1618220403
+Emotion_recall              0.1772971704             0.1255388284
+Triggers_recall             0.2119196348             0.1981052523
+Agg_avg_precision           0.2708080689             0.2201821775
+Emotion_precision           0.3264315315             0.2323928555
+Triggers_precision          0.2151846063             0.2079714996
+
+trigger_classifier.0.weight has been freezed because triggers_F1 is no more increasing
+trigger_classifier.0.bias has been freezed because triggers_F1 is no more increasing
+
+The training is continuing. Stopping criteria not reached for emotion_F1
 ====================================================================
-Epoch 8/25                                          Time: 596.0010s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 10.9701324434            10.4932075466
-Agg_avg_f1                  0.4490883856             0.3746288779
-Emotion_f1                  0.4984862090             0.4230599984
-Triggers_f1                 0.3996905621             0.3261977574
-Agg_avg_accuracy            0.7477006637             0.6024208075
-Emotion_accuracy            0.7441015625             0.7714130435
-Triggers_accuracy           0.7512997650             0.4334285714
-Agg_avg_recall              0.3131262177             0.2741529397
-Emotion_recall              0.3641579147             0.3094016126
-Triggers_recall             0.2620945208             0.2389042667
-Agg_avg_precision           0.2926462274             0.2751217320
-Emotion_precision           0.3460974973             0.3346968530
-Triggers_precision          0.2391949575             0.2155466110
-====================================================================
-Epoch 9/25                                          Time: 586.3229s
+Epoch 5/25                                          Time: 599.0272s
 ====================================================================
 Metric/Loss                 Training                 Validation
 --------------------------------------------------------------------
-Agg_ce_loss                 10.9395399201            10.4860033965
-Agg_avg_f1                  0.4562937312             0.3735923397
-Emotion_f1                  0.5107836994             0.4238352429
-Triggers_f1                 0.4018037630             0.3233494364
-Agg_avg_accuracy            0.7375851557             0.5856180124
-Emotion_accuracy            0.7491536458             0.7715217391
-Triggers_accuracy           0.7260166655             0.3997142857
-Agg_avg_recall              0.3184668972             0.2721260482
-Emotion_recall              0.3711162754             0.3106509494
-Triggers_recall             0.2658175190             0.2336011471
-Agg_avg_precision           0.2918480568             0.2771920456
-Emotion_precision           0.3470259195             0.3390450238
-Triggers_precision          0.2366701941             0.2153390673
+Agg_ce_loss                 1.7358227945             2.1622053254
+Agg_avg_f1                  0.3227737270             0.2543660040
+Emotion_f1                  0.1687111166             0.0927146301
+Triggers_f1                 0.4768363374             0.4160173780
+Agg_avg_accuracy            0.2941878697             0.2439627582
+Emotion_accuracy            0.0809279453             0.0567355252
+Triggers_accuracy           0.5074477942             0.4311899913
+Agg_avg_recall              0.1673882243             0.1423946536
+Emotion_recall              0.0801394296             0.0474960498
+Triggers_recall             0.2546370189             0.2372932574
+Agg_avg_precision           0.2586100333             0.2343854444
+Emotion_precision           0.2956538922             0.2544942876
+Triggers_precision          0.2215661744             0.2142766012
 ====================================================================
-Epoch 10/25                                         Time: 585.9600s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 10.9132757919            10.4728481847
-Agg_avg_f1                  0.4599997742             0.3731432111
-Emotion_f1                  0.5174512115             0.4236231699
-Triggers_f1                 0.4025483369             0.3226632522
-Agg_avg_accuracy            0.7313440841             0.5825512422
-Emotion_accuracy            0.7498828125             0.7696739130
-Triggers_accuracy           0.7128053557             0.3954285714
-Agg_avg_recall              0.3220297217             0.2724180207
-Emotion_recall              0.3766670076             0.3120447732
-Triggers_recall             0.2673924359             0.2327912682
-Agg_avg_precision           0.2911418420             0.2748390179
-Emotion_precision           0.3466151003             0.3344462985
-Triggers_precision          0.2356685836             0.2152317373
-====================================================================
-Epoch 11/25                                         Time: 585.8957s
+Epoch 6/25                                          Time: 600.2510s
 ====================================================================
 Metric/Loss                 Training                 Validation
 --------------------------------------------------------------------
-Agg_ce_loss                 10.8894882729            10.4651166832
-Agg_avg_f1                  0.4649918278             0.3737321219
-Emotion_f1                  0.5218698197             0.4239253352
-Triggers_f1                 0.4081138359             0.3235389086
-Agg_avg_accuracy            0.7353026632             0.5850077640
-Emotion_accuracy            0.7490755208             0.7685869565
-Triggers_accuracy           0.7215298056             0.4014285714
-Agg_avg_recall              0.3221955273             0.2726901353
-Emotion_recall              0.3763646741             0.3114781513
-Triggers_recall             0.2680263806             0.2339021192
-Agg_avg_precision           0.2941262759             0.2734642733
-Emotion_precision           0.3511051761             0.3315720561
-Triggers_precision          0.2371473756             0.2153564905
-Early stopping activated, best weights reloaded.
+Agg_ce_loss                 1.6575859137             2.0859088017
+Agg_avg_f1                  0.3187462504             0.2487513056
+Emotion_f1                  0.1606561634             0.0814852332
+Triggers_f1                 0.4768363374             0.4160173780
+Agg_avg_accuracy            0.2849939420             0.2342158859
+Emotion_accuracy            0.0625400898             0.0372417806
+Triggers_accuracy           0.5074477942             0.4311899913
+Agg_avg_recall              0.1660495462             0.1390659310
+Emotion_recall              0.0774620735             0.0408386047
+Triggers_recall             0.2546370189             0.2372932574
+Agg_avg_precision           0.2640171962             0.2144762362
+Emotion_precision           0.3064682181             0.2146758713
+Triggers_precision          0.2215661744             0.2142766012
+
+emotion_classifier.0.weight has been freezed because emotion_F1 is no more increasing
+emotion_classifier.0.bias has been freezed because emotion_F1 is no more increasing
+emotion_classifier.2.weight has been freezed because emotion_F1 is no more increasing
+emotion_classifier.2.bias has been freezed because emotion_F1 is no more increasing
+
+All the Early Stopper has been activated, best weights reloaded
 
 Train Completed.
 
 
 
-########################################################################################################################
+----------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------
 
-####################################### lr -6 batch_size 16  binary mode    emotion_weight_criterion = 1
-                                                                            trigger_weight_criterion = 0.357
+
+
+emotion_weight_criterion = 1    #bilanciamento delle loss
+trigger_weight_criterion = 0.4  #bilanciamento delle loss
+
+self.emotion_classifier = torch.nn.Sequential(
+torch.nn.Linear(in_features=cls_input_size, out_features=hidden_dim),
+torch.nn.ReLU(inplace=True),
+torch.nn.Linear(in_features=hidden_dim, out_features=n_emotions)
+)
+
+self.trigger_classifier = torch.nn.Sequential(
+torch.nn.Linear(in_features=cls_input_size, out_features=n_triggers)
+)
+
+
+'lr': 1e-3
+xavier no
+patience 3
+
+summary
+Emotion_f1                  0.5236312368             0.3858114844
+Triggers_f1                 0.4665942654             0.4131704445
+
 
 ====================================================================
-Epoch 1/25                                          Time: 602.5567s
+Epoch 1/25                                          Time: 599.8915s
 ====================================================================
 Metric/Loss                 Training                 Validation
 --------------------------------------------------------------------
-Agg_ce_loss                 12.1082107911            11.0404744628
-Agg_avg_f1                  0.2448498708             0.2440530003
-Emotion_f1                  0.2228424625             0.2435776987
-Triggers_f1                 0.2668572790             0.2445283019
-Agg_avg_accuracy            0.6020463325             0.5611435838
-Emotion_accuracy            0.6456119792             0.6791304348
-Triggers_accuracy           0.5584806858             0.4431567329
-Agg_avg_recall              0.2053333187             0.2011320985
-Emotion_recall              0.1780733154             0.1834622015
-Triggers_recall             0.2325933220             0.2188019955
-Agg_avg_precision           0.1872353297             0.1922097849
-Emotion_precision           0.1693281538             0.1873789930
-Triggers_precision          0.2051425056             0.1970405769
+Agg_ce_loss                 1.7774992789             2.2167814860
+Agg_avg_f1                  0.4626322248             0.3832452139
+Emotion_f1                  0.4586701842             0.3533199834
+Triggers_f1                 0.4665942654             0.4131704445
+Agg_avg_accuracy            0.4543867151             0.3780913587
+Emotion_accuracy            0.4166844844             0.3299389002
+Triggers_accuracy           0.4920889459             0.4262438173
+Agg_avg_recall              0.2872958471             0.2554267291
+Emotion_recall              0.3212465081             0.2733001748
+Triggers_recall             0.2533451860             0.2375532834
+Agg_avg_precision           0.2540724136             0.2332894661
+Emotion_precision           0.2864304719             0.2512361099
+Triggers_precision          0.2217143552             0.2153428223
 ====================================================================
-Epoch 2/25                                          Time: 603.1712s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.9782696627            10.9445421988
-Agg_avg_f1                  0.2604893961             0.2554329110
-Emotion_f1                  0.2516179071             0.2689135895
-Triggers_f1                 0.2693608851             0.2419522326
-Agg_avg_accuracy            0.6885971627             0.6470977301
-Emotion_accuracy            0.6638411458             0.6970652174
-Triggers_accuracy           0.7133531796             0.5971302428
-Agg_avg_recall              0.2115424935             0.2119061841
-Emotion_recall              0.1934106148             0.1984399213
-Triggers_recall             0.2296743723             0.2253724469
-Agg_avg_precision           0.2067641589             0.2058388412
-Emotion_precision           0.1976728511             0.2095375448
-Triggers_precision          0.2158554667             0.2021401375
-====================================================================
-Epoch 3/25                                          Time: 602.7642s
+Epoch 2/25                                          Time: 602.5108s
 ====================================================================
 Metric/Loss                 Training                 Validation
 --------------------------------------------------------------------
-Agg_ce_loss                 11.8822416444            10.9064850072
-Agg_avg_f1                  0.2648592037             0.2676750578
-Emotion_f1                  0.2745076618             0.2913249583
-Triggers_f1                 0.2552107457             0.2440251572
-Agg_avg_accuracy            0.7240211204             0.6903568001
-Emotion_accuracy            0.6787369792             0.7123913043
-Triggers_accuracy           0.7693052616             0.6683222958
-Agg_avg_recall              0.2126593682             0.2179968753
-Emotion_recall              0.2041636165             0.2111653267
-Triggers_recall             0.2211551198             0.2248284238
-Agg_avg_precision           0.2141079783             0.2151384539
-Emotion_precision           0.2048305127             0.2232504821
-Triggers_precision          0.2233854438             0.2070264257
+Agg_ce_loss                 1.7169495154             2.1895758642
+Agg_avg_f1                  0.2930623164             0.2305948643
+Emotion_f1                  0.3471089981             0.2454133434
+Triggers_f1                 0.2390156348             0.2157763853
+Agg_avg_accuracy            0.2346055164             0.2029386093
+Emotion_accuracy            0.2263915615             0.1824265348
+Triggers_accuracy           0.2428194712             0.2234506837
+Agg_avg_recall              0.2150515495             0.1879124715
+Emotion_recall              0.2334324896             0.1879609404
+Triggers_recall             0.1966706095             0.1878640026
+Agg_avg_precision           0.2708440347             0.2531554539
+Emotion_precision           0.3278125770             0.2954960352
+Triggers_precision          0.2138754924             0.2108148726
 ====================================================================
-Epoch 4/25                                          Time: 603.6804s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.8023988817            10.8783089196
-Agg_avg_f1                  0.2734851714             0.2743217234
-Emotion_f1                  0.2925142888             0.3129576944
-Triggers_f1                 0.2544560541             0.2356857523
-Agg_avg_accuracy            0.7360518821             0.7034049573
-Emotion_accuracy            0.6896354167             0.7235869565
-Triggers_accuracy           0.7824683476             0.6832229581
-Agg_avg_recall              0.2167176555             0.2229570389
-Emotion_recall              0.2137960475             0.2241631880
-Triggers_recall             0.2196392636             0.2217508898
-Agg_avg_precision           0.2202464049             0.2235743994
-Emotion_precision           0.2134838172             0.2403173917
-Triggers_precision          0.2270089925             0.2068314072
-====================================================================
-Epoch 5/25                                          Time: 604.2125s
+Epoch 3/25                                          Time: 603.4568s
 ====================================================================
 Metric/Loss                 Training                 Validation
 --------------------------------------------------------------------
-Agg_ce_loss                 11.7336502063            10.8566413062
-Agg_avg_f1                  0.2801204411             0.2813583392
-Emotion_f1                  0.3119900401             0.3219372769
-Triggers_f1                 0.2482508422             0.2407794015
-Agg_avg_accuracy            0.7457227828             0.7154539783
-Emotion_accuracy            0.6995442708             0.7319565217
-Triggers_accuracy           0.7919012948             0.6989514349
-Agg_avg_recall              0.2221547340             0.2256970642
-Emotion_recall              0.2271769570             0.2288630363
-Triggers_recall             0.2171325110             0.2225310921
-Agg_avg_precision           0.2256278760             0.2281849537
-Emotion_precision           0.2218667211             0.2470674823
-Triggers_precision          0.2293890309             0.2093024250
+Agg_ce_loss                 1.7013144954             2.2353193963
+Agg_avg_f1                  0.4170224945             0.3265978112
+Emotion_f1                  0.5236312368             0.3858114844
+Triggers_f1                 0.3104137521             0.2673841380
+Agg_avg_accuracy            0.4062076830             0.3311027058
+Emotion_accuracy            0.5019955812             0.3936572592
+Triggers_accuracy           0.3104197848             0.2685481525
+Agg_avg_recall              0.2841323239             0.2455444218
+Emotion_recall              0.3518221846             0.2898964646
+Triggers_recall             0.2164424633             0.2011923789
+Agg_avg_precision           0.2561898520             0.2304808071
+Emotion_precision           0.2965715069             0.2518396926
+Triggers_precision          0.2158081971             0.2091219216
 ====================================================================
-Epoch 6/25                                          Time: 603.6141s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.6744666382            10.8385545535
-Agg_avg_f1                  0.2915122955             0.2936226833
-Emotion_f1                  0.3206265998             0.3326034568
-Triggers_f1                 0.2623979912             0.2546419098
-Agg_avg_accuracy            0.7464709392             0.7144879547
-Emotion_accuracy            0.7036588542             0.7391304348
-Triggers_accuracy           0.7892830243             0.6898454746
-Agg_avg_recall              0.2271285473             0.2308589874
-Emotion_recall              0.2334088448             0.2346632744
-Triggers_recall             0.2208482498             0.2270547003
-Agg_avg_precision           0.2281104625             0.2382248690
-Emotion_precision           0.2257920710             0.2656634029
-Triggers_precision          0.2304288541             0.2107863350
-====================================================================
-Epoch 7/25                                          Time: 603.6943s
+Epoch 4/25                                          Time: 603.3785s
 ====================================================================
 Metric/Loss                 Training                 Validation
 --------------------------------------------------------------------
-Agg_ce_loss                 11.6237860590            10.8084466627
-Agg_avg_f1                  0.2998756510             0.3060920757
-Emotion_f1                  0.3318784537             0.3368960593
-Triggers_f1                 0.2678728483             0.2752880922
-Agg_avg_accuracy            0.7495322613             0.7149059411
-Emotion_accuracy            0.7080598958             0.7421739130
-Triggers_accuracy           0.7910046268             0.6876379691
-Agg_avg_recall              0.2320310140             0.2353822699
-Emotion_recall              0.2420779957             0.2375387912
-Triggers_recall             0.2219840323             0.2332257487
-Agg_avg_precision           0.2314816744             0.2403536737
-Emotion_precision           0.2311704268             0.2666278422
-Triggers_precision          0.2317929221             0.2140795053
+Agg_ce_loss                 1.7000646438             2.2180159532
+Agg_avg_f1                  0.3770367526             0.2994906381
+Emotion_f1                  0.3695522439             0.2717556849
+Triggers_f1                 0.3845212613             0.3272255914
+Agg_avg_accuracy            0.3400862376             0.2782950247
+Emotion_accuracy            0.2908203264             0.2286878091
+Triggers_accuracy           0.3893521488             0.3279022403
+Agg_avg_recall              0.2506575649             0.2198387167
+Emotion_recall              0.2653636103             0.2229350248
+Triggers_recall             0.2359515195             0.2167424087
+Agg_avg_precision           0.2676791728             0.2491917402
+Emotion_precision           0.3160611752             0.2873013591
+Triggers_precision          0.2192971705             0.2110821214
+
+trigger_classifier.0.weight has been freezed because triggers_F1 is no more increasing
+trigger_classifier.0.bias has been freezed because triggers_F1 is no more increasing
+
+The training is continuing. Stopping criteria not reached for emotion_F1
 ====================================================================
-Epoch 8/25                                          Time: 603.2039s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.5792399842            10.7881197195
-Agg_avg_f1                  0.3087444712             0.3158058160
-Emotion_f1                  0.3426893433             0.3485010609
-Triggers_f1                 0.2747995992             0.2831105711
-Agg_avg_accuracy            0.7524809519             0.7119790767
-Emotion_accuracy            0.7126302083             0.7495652174
-Triggers_accuracy           0.7923316954             0.6743929360
-Agg_avg_recall              0.2368719030             0.2404049292
-Emotion_recall              0.2502315211             0.2445736778
-Triggers_recall             0.2235122850             0.2362361807
-Agg_avg_precision           0.2346092885             0.2580292216
-Emotion_precision           0.2360253356             0.3017961848
-Triggers_precision          0.2331932414             0.2142622583
-====================================================================
-Epoch 9/25                                          Time: 602.2258s
+Epoch 5/25                                          Time: 603.6693s
 ====================================================================
 Metric/Loss                 Training                 Validation
 --------------------------------------------------------------------
-Agg_ce_loss                 11.5403976449            10.7723508640
-Agg_avg_f1                  0.3193254059             0.3193324558
-Emotion_f1                  0.3539936831             0.3549603396
-Triggers_f1                 0.2846571288             0.2837045721
-Agg_avg_accuracy            0.7545281808             0.7082495921
-Emotion_accuracy            0.7170833333             0.7536956522
-Triggers_accuracy           0.7919730282             0.6628035320
-Agg_avg_recall              0.2424138537             0.2428308557
-Emotion_recall              0.2588581206             0.2487041938
-Triggers_recall             0.2259695869             0.2369575177
-Agg_avg_precision           0.2373084276             0.2585609982
-Emotion_precision           0.2402832971             0.3036309939
-Triggers_precision          0.2343335580             0.2134910024
+Agg_ce_loss                 1.7498552695             2.1707229751
+Agg_avg_f1                  0.4224173551             0.3468642939
+Emotion_f1                  0.3782404448             0.2805581433
+Triggers_f1                 0.4665942654             0.4131704445
+Agg_avg_accuracy            0.4068669375             0.3468140820
+Emotion_accuracy            0.3216449291             0.2673843468
+Triggers_accuracy           0.4920889459             0.4262438173
+Agg_avg_recall              0.2571550896             0.2258786726
+Emotion_recall              0.2609649931             0.2142040618
+Triggers_recall             0.2533451860             0.2375532834
+Agg_avg_precision           0.2741845155             0.2576001094
+Emotion_precision           0.3266546757             0.2998573966
+Triggers_precision          0.2217143552             0.2153428223
 ====================================================================
-Epoch 10/25                                         Time: 602.8345s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.5064540885            10.7482120156
-Agg_avg_f1                  0.3273534584             0.3244753393
-Emotion_f1                  0.3617567159             0.3633969967
-Triggers_f1                 0.2929502009             0.2855536818
-Agg_avg_accuracy            0.7557177514             0.7031738890
-Emotion_accuracy            0.7197135417             0.7570652174
-Triggers_accuracy           0.7917219612             0.6492825607
-Agg_avg_recall              0.2460995653             0.2464502893
-Emotion_recall              0.2641553678             0.2548591110
-Triggers_recall             0.2280437629             0.2380414675
-Agg_avg_precision           0.2683112482             0.2608115083
-Emotion_precision           0.3013379733             0.3087248362
-Triggers_precision          0.2352845231             0.2128981803
-====================================================================
-Epoch 11/25                                         Time: 593.4868s
+Epoch 6/25                                          Time: 601.0630s
 ====================================================================
 Metric/Loss                 Training                 Validation
 --------------------------------------------------------------------
-Agg_ce_loss                 11.4762536404            10.7197610430
-Agg_avg_f1                  0.3307881537             0.3313958675
-Emotion_f1                  0.3677951220             0.3717428608
-Triggers_f1                 0.2937811853             0.2910488742
-Agg_avg_accuracy            0.7569222974             0.7026427680
-Emotion_accuracy            0.7219791667             0.7615217391
-Triggers_accuracy           0.7918654281             0.6437637969
-Agg_avg_recall              0.2489887957             0.2503265133
-Emotion_recall              0.2697480986             0.2607799455
-Triggers_recall             0.2282294927             0.2398730810
-Agg_avg_precision           0.2696069656             0.2619853556
-Emotion_precision           0.3037774797             0.3104647963
-Triggers_precision          0.2354364515             0.2135059149
-====================================================================
-Epoch 12/25                                         Time: 593.6286s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.4505990488            10.7165944533
-Agg_avg_f1                  0.3361391161             0.3332772231
-Emotion_f1                  0.3722304539             0.3773203809
-Triggers_f1                 0.3000477783             0.2892340653
-Agg_avg_accuracy            0.7564665021             0.6978389241
-Emotion_accuracy            0.7231119792             0.7618478261
-Triggers_accuracy           0.7898210251             0.6338300221
-Agg_avg_recall              0.2521553557             0.2524994852
-Emotion_recall              0.2742500151             0.2653800342
-Triggers_recall             0.2300606963             0.2396189362
-Agg_avg_precision           0.2707379500             0.2628138050
-Emotion_precision           0.3059540065             0.3130042015
-Triggers_precision          0.2355218935             0.2126234085
-====================================================================
-Epoch 13/25                                         Time: 584.9399s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.4255006017            10.6850901148
-Agg_avg_f1                  0.3419076554             0.3361358609
-Emotion_f1                  0.3781651288             0.3802408735
-Triggers_f1                 0.3056501821             0.2920308483
-Agg_avg_accuracy            0.7563526820             0.6914295998
-Emotion_accuracy            0.7247135417             0.7628260870
-Triggers_accuracy           0.7879918224             0.6200331126
-Agg_avg_recall              0.2551857554             0.2544191410
-Emotion_recall              0.2786593596             0.2680792778
-Triggers_recall             0.2317121513             0.2407590042
-Agg_avg_precision           0.2719291969             0.2633699443
-Emotion_precision           0.3082340987             0.3143393032
-Triggers_precision          0.2356242951             0.2124005855
-====================================================================
-Epoch 14/25                                         Time: 584.2207s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.4034891910            10.6631802953
-Agg_avg_f1                  0.3460622184             0.3380463440
-Emotion_f1                  0.3824768344             0.3799064571
-Triggers_f1                 0.3096476025             0.2961862308
-Agg_avg_accuracy            0.7557322908             0.6846524379
-Emotion_accuracy            0.7257682292             0.7614130435
-Triggers_accuracy           0.7856963524             0.6078918322
-Agg_avg_recall              0.2581045820             0.2556193389
-Emotion_recall              0.2831725972             0.2690657611
-Triggers_recall             0.2330365669             0.2421729166
-Agg_avg_precision           0.2728892034             0.2636872941
-Emotion_precision           0.3103625810             0.3147902834
-Triggers_precision          0.2354158258             0.2125843049
-====================================================================
-Epoch 15/25                                         Time: 588.5001s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.3834485252            10.6396919688
-Agg_avg_f1                  0.3478105077             0.3402051483
-Emotion_f1                  0.3819815047             0.3850435013
-Triggers_f1                 0.3136395107             0.2953667954
-Agg_avg_accuracy            0.7559039915             0.6793259910
-Emotion_accuracy            0.7251432292             0.7615217391
-Triggers_accuracy           0.7866647538             0.5971302428
-Agg_avg_recall              0.2592684977             0.2576873515
-Emotion_recall              0.2846294115             0.2733829258
-Triggers_recall             0.2339075838             0.2419917773
-Agg_avg_precision           0.2732289574             0.2646128373
-Emotion_precision           0.3102691165             0.3172371513
-Triggers_precision          0.2361887983             0.2119885232
-====================================================================
-Epoch 16/25                                         Time: 593.9810s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.3664293438            10.6393403179
-Agg_avg_f1                  0.3522537287             0.3433987352
-Emotion_f1                  0.3857886933             0.3887433650
-Triggers_f1                 0.3187187642             0.2980541054
-Agg_avg_accuracy            0.7550333652             0.6767045782
-Emotion_accuracy            0.7251953125             0.7615217391
-Triggers_accuracy           0.7848714178             0.5918874172
-Agg_avg_recall              0.2615313142             0.2591128039
-Emotion_recall              0.2876135608             0.2754220187
-Triggers_recall             0.2354490675             0.2428035891
-Agg_avg_precision           0.2740883288             0.2644619274
-Emotion_precision           0.3118999047             0.3166464715
-Triggers_precision          0.2362767529             0.2122773833
-====================================================================
-Epoch 17/25                                         Time: 592.9927s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.3491563004            10.6224509055
-Agg_avg_f1                  0.3542778239             0.3461059331
-Emotion_f1                  0.3905093282             0.3904674061
-Triggers_f1                 0.3180463197             0.3017444602
-Agg_avg_accuracy            0.7564508665             0.6765916835
-Emotion_accuracy            0.7262369792             0.7618478261
-Triggers_accuracy           0.7866647538             0.5913355408
-Agg_avg_recall              0.2633361812             0.2605170102
-Emotion_recall              0.2916517027             0.2771270600
-Triggers_recall             0.2350206596             0.2439069605
-Agg_avg_precision           0.2750825011             0.2655023344
-Emotion_precision           0.3134483367             0.3180693720
-Triggers_precision          0.2367166654             0.2129352969
-====================================================================
-Epoch 18/25                                         Time: 590.7500s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.3335407364            10.6104061159
-Agg_avg_f1                  0.3563385023             0.3466469387
-Emotion_f1                  0.3910415702             0.3911818480
-Triggers_f1                 0.3216354344             0.3021120294
-Agg_avg_accuracy            0.7558462825             0.6707217583
-Emotion_accuracy            0.7259244792             0.7608695652
-Triggers_accuracy           0.7857680858             0.5805739514
-Agg_avg_recall              0.2648346632             0.2612705890
-Emotion_recall              0.2936094968             0.2785778580
-Triggers_recall             0.2360598296             0.2439633201
-Agg_avg_precision           0.2754565689             0.2659022044
-Emotion_precision           0.3140309577             0.3191753001
-Triggers_precision          0.2368821802             0.2126291087
-====================================================================
-Epoch 19/25                                         Time: 589.2263s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.3176460441            10.5914878200
-Agg_avg_f1                  0.3614656530             0.3474185217
-Emotion_f1                  0.3965145278             0.3907434762
-Triggers_f1                 0.3264167782             0.3040935673
-Agg_avg_accuracy            0.7553707183             0.6665074623
-Emotion_accuracy            0.7273046875             0.7598913043
-Triggers_accuracy           0.7834367490             0.5731236203
-Agg_avg_recall              0.2675163016             0.2618110303
-Emotion_recall              0.2974155403             0.2791528036
-Triggers_recall             0.2376170630             0.2444692570
-Agg_avg_precision           0.2764490201             0.2631074106
-Emotion_precision           0.3161013175             0.3134502787
-Triggers_precision          0.2367967226             0.2127645425
-====================================================================
-Epoch 20/25                                         Time: 585.3732s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.3039133552            10.5825288293
-Agg_avg_f1                  0.3645041371             0.3456435738
-Emotion_f1                  0.3998971631             0.3874002218
-Triggers_f1                 0.3291111111             0.3038869258
-Agg_avg_accuracy            0.7553707183             0.6614737499
-Emotion_accuracy            0.7273046875             0.7578260870
-Triggers_accuracy           0.7834367490             0.5651214128
-Agg_avg_recall              0.2690835149             0.2609947698
-Emotion_recall              0.2998612166             0.2777127638
-Triggers_recall             0.2383058132             0.2442767758
-Agg_avg_precision           0.2775642345             0.2626231594
-Emotion_precision           0.3180121602             0.3127567928
-Triggers_precision          0.2371163089             0.2124895260
-====================================================================
-Epoch 21/25                                         Time: 584.8997s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.2903529508            10.5681218471
-Agg_avg_f1                  0.3694301373             0.3505467829
-Emotion_f1                  0.4054553337             0.3948570066
-Triggers_f1                 0.3334049409             0.3062365591
-Agg_avg_accuracy            0.7529112993             0.6570754151
-Emotion_accuracy            0.7284114583             0.7592391304
-Triggers_accuracy           0.7774111402             0.5549116998
-Agg_avg_recall              0.2717625650             0.2640519415
-Emotion_recall              0.3032368310             0.2833662951
-Triggers_recall             0.2402882991             0.2447375880
-Agg_avg_precision           0.2780769121             0.2649393196
-Emotion_precision           0.3200718753             0.3172079007
-Triggers_precision          0.2360819488             0.2126707386
-====================================================================
-Epoch 22/25                                         Time: 584.8004s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.2778937429            10.5596638143
-Agg_avg_f1                  0.3730653102             0.3521096883
-Emotion_f1                  0.4091017955             0.3954146127
-Triggers_f1                 0.3370288248             0.3088047639
-Agg_avg_accuracy            0.7520253411             0.6549306555
-Emotion_accuracy            0.7292578125             0.7582608696
-Triggers_accuracy           0.7747928697             0.5516004415
-Agg_avg_recall              0.2738576076             0.2650222131
-Emotion_recall              0.3061098116             0.2846467008
-Triggers_recall             0.2416054036             0.2453977255
-Agg_avg_precision           0.2787000080             0.2655227087
-Emotion_precision           0.3214990189             0.3179518604
-Triggers_precision          0.2359009970             0.2130935569
-====================================================================
-Epoch 23/25                                         Time: 584.7836s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.2660782660            10.5535403711
-Agg_avg_f1                  0.3729435188             0.3509801060
-Emotion_f1                  0.4079309890             0.3940721714
-Triggers_f1                 0.3379560486             0.3078880407
-Agg_avg_accuracy            0.7525857784             0.6534213936
-Emotion_accuracy            0.7277604167             0.7571739130
-Triggers_accuracy           0.7774111402             0.5496688742
-Agg_avg_recall              0.2740114960             0.2647881345
-Emotion_recall              0.3065547591             0.2845031553
-Triggers_recall             0.2414682330             0.2450731136
-Agg_avg_precision           0.2794733254             0.2653977656
-Emotion_precision           0.3223159009             0.3179274112
-Triggers_precision          0.2366307499             0.2128681200
-====================================================================
-Epoch 24/25                                         Time: 584.9648s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.2546097728            10.5447883794
-Agg_avg_f1                  0.3781741341             0.3517984834
-Emotion_f1                  0.4118306555             0.3945517406
-Triggers_f1                 0.3445176126             0.3090452261
-Agg_avg_accuracy            0.7521492767             0.6508292542
-Emotion_accuracy            0.7292187500             0.7569565217
-Triggers_accuracy           0.7750798035             0.5447019868
-Agg_avg_recall              0.2764803757             0.2650915668
-Emotion_recall              0.3094437939             0.2849316460
-Triggers_recall             0.2435169575             0.2452514877
-Agg_avg_precision           0.2805282261             0.2655673025
-Emotion_precision           0.3241843791             0.3181483774
-Triggers_precision          0.2368720730             0.2129862275
-====================================================================
-Epoch 25/25                                         Time: 585.0578s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 11.2440200417            10.5335196049
-Agg_avg_f1                  0.3811265006             0.3543378493
-Emotion_f1                  0.4161756995             0.3993201893
-Triggers_f1                 0.3460773018             0.3093555094
-Agg_avg_accuracy            0.7532699004             0.6502898551
-Emotion_accuracy            0.7304557292             0.7589130435
-Triggers_accuracy           0.7760840716             0.5416666667
-Agg_avg_recall              0.2778784643             0.2668767514
-Emotion_recall              0.3119808918             0.2885177158
-Triggers_recall             0.2437760369             0.2452357869
-Agg_avg_precision           0.2811933635             0.2666434691
-Emotion_precision           0.3250984680             0.3203029045
-Triggers_precision          0.2372882589             0.2129840336
+Agg_ce_loss                 1.6688397984             2.0819832313
+Agg_avg_f1                  0.4324943934             0.3344277633
+Emotion_f1                  0.3983945214             0.2556850821
+Triggers_f1                 0.4665942654             0.4131704445
+Agg_avg_accuracy            0.4204440168             0.3535059645
+Emotion_accuracy            0.3487990877             0.2807681117
+Triggers_accuracy           0.4920889459             0.4262438173
+Agg_avg_recall              0.2493669855             0.2111065607
+Emotion_recall              0.2453887849             0.1846598379
+Triggers_recall             0.2533451860             0.2375532834
+Agg_avg_precision           0.2874802800             0.2645223544
+Emotion_precision           0.3532462049             0.3137018865
+Triggers_precision          0.2217143552             0.2153428223
+
+emotion_classifier.0.weight has been freezed because emotion_F1 is no more increasing
+emotion_classifier.0.bias has been freezed because emotion_F1 is no more increasing
+emotion_classifier.2.weight has been freezed because emotion_F1 is no more increasing
+emotion_classifier.2.bias has been freezed because emotion_F1 is no more increasing
+
+All the Early Stopper has been activated, best weights reloaded
 
 Train Completed.
 
-###############################################################################################################
 
 
-batch16 lr -6
+----------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------
+
+
+
+emotion_weight_criterion = 1    #insert the value that comes out from the grid
+trigger_weight_criterion = 0.4    #insert the value that comes out from the grid
+
+self.emotion_classifier = torch.nn.Sequential(
+torch.nn.Linear(in_features=cls_input_size, out_features=hidden_dim),
+torch.nn.ReLU(inplace=True),
+torch.nn.Linear(in_features=hidden_dim, out_features=n_emotions)
+)
+
+self.trigger_classifier = torch.nn.Sequential(
+torch.nn.Linear(in_features=cls_input_size, out_features=n_triggers)
+)
+
+
+'lr': 1e-3
+he
+patience 3
+
+
+summary
+Emotion_f1                  0.5586497030             0.4067009323
+Triggers_f1                 0.4324749167             0.3765127291
+
 
 ====================================================================
-Epoch 1/25                                          Time: 599.1100s
+Epoch 1/25                                          Time: 600.1399s
 ====================================================================
 Metric/Loss                 Training                 Validation
 --------------------------------------------------------------------
-Agg_ce_loss                 8.2122215732             8.1903304002
-Agg_avg_f1                  0.3497235167             0.3418705955
-Emotion_f1                  0.2231311279             0.2226737645
-Triggers_f1                 0.4763159055             0.4610674264
-Agg_avg_accuracy            0.6038532891             0.5852150705
-Emotion_accuracy            0.6438151042             0.6314583333
-Triggers_accuracy           0.5638914740             0.5389718076
-Agg_avg_recall              0.2067802072             0.2031695202
-Emotion_recall              0.1825232291             0.1793817542
-Triggers_recall             0.2310371852             0.2269572862
-Agg_avg_precision           0.1885961119             0.1878956450
-Emotion_precision           0.1727606402             0.1737263357
-Triggers_precision          0.2044315836             0.2020649543
+Agg_ce_loss                 1.7958019931             2.2214077126
+Agg_avg_f1                  0.4345994842             0.3502936879
+Emotion_f1                  0.4367240516             0.3240746467
+Triggers_f1                 0.4324749167             0.3765127291
+Agg_avg_accuracy            0.4220297912             0.3465231306
+Emotion_accuracy            0.3956239755             0.3110270585
+Triggers_accuracy           0.4484356069             0.3820192028
+Agg_avg_recall              0.2758322959             0.2370220413
+Emotion_recall              0.3057837094             0.2447433731
+Triggers_recall             0.2458808825             0.2293007096
+Agg_avg_precision           0.2529899681             0.2334271726
+Emotion_precision           0.2866102029             0.2529728084
+Triggers_precision          0.2193697333             0.2138815367
 ====================================================================
-Epoch 2/25                                          Time: 600.5555s
-====================================================================
-Metric/Loss                 Training                 Validation
---------------------------------------------------------------------
-Agg_ce_loss                 8.1178650932             8.0968997095
-Agg_avg_f1                  0.3977198061             0.3960687530
-Emotion_f1                  0.2475785641             0.2513958505
-Triggers_f1                 0.5478610480             0.5407416556
-Agg_avg_accuracy            0.6947136214             0.6823478096
-Emotion_accuracy            0.6610286458             0.6510416667
-Triggers_accuracy           0.7283985969             0.7136539525
-Agg_avg_recall              0.2095748885             0.2104838436
-Emotion_recall              0.1927091706             0.1955179513
-Triggers_recall             0.2264406064             0.2254497359
-Agg_avg_precision           0.2062887036             0.2095237913
-Emotion_precision           0.1958594283             0.2043605941
-Triggers_precision          0.2167179790             0.2146869885
-====================================================================
-Epoch 3/25                                          Time: 604.1453s
+Epoch 2/25                                          Time: 603.3245s
 ====================================================================
 Metric/Loss                 Training                 Validation
 --------------------------------------------------------------------
-Agg_ce_loss                 8.0496206972             8.0290391303
-Agg_avg_f1                  0.4118908932             0.4107641325
-Emotion_f1                  0.2683257572             0.2683264977
-Triggers_f1                 0.5554560292             0.5532017673
-Agg_avg_accuracy            0.7235947548             0.7138679001
-Emotion_accuracy            0.6727604167             0.6623958333
-Triggers_accuracy           0.7744290930             0.7653399668
-Agg_avg_recall              0.2106927004             0.2105943603
-Emotion_recall              0.2037891641             0.2032046469
-Triggers_recall             0.2175962366             0.2179840737
-Agg_avg_precision           0.2146824129             0.2205526581
-Emotion_precision           0.2063118745             0.2190464657
-Triggers_precision          0.2230529513             0.2220588504
+Agg_ce_loss                 1.7102165284             2.1904816792
+Agg_avg_f1                  0.3338944007             0.2717095359
+Emotion_f1                  0.4648708201             0.3534776585
+Triggers_f1                 0.2029179812             0.1899414133
+Agg_avg_accuracy            0.3136982396             0.2665114926
+Emotion_accuracy            0.4159717768             0.3308117544
+Triggers_accuracy           0.2114247024             0.2022112307
+Agg_avg_recall              0.2536028721             0.2214984693
+Emotion_recall              0.3210195308             0.2624334553
+Triggers_recall             0.1861862134             0.1805634833
+Agg_avg_precision           0.2560575661             0.2405194368
+Emotion_precision           0.2995951002             0.2707609721
+Triggers_precision          0.2125200321             0.2102779014
 ====================================================================
-Epoch 4/25                                          Time: 610.0246s
+Epoch 3/25                                          Time: 602.1378s
 ====================================================================
 Metric/Loss                 Training                 Validation
 --------------------------------------------------------------------
-Agg_ce_loss                 7.9919531198             7.9714292995
-Agg_avg_f1                  0.4230137919             0.4216655676
-Emotion_f1                  0.2901965184             0.2880044820
-Triggers_f1                 0.5558310654             0.5553266532
-Agg_avg_accuracy            0.7388126718             0.7294833990
-Emotion_accuracy            0.6852994792             0.6759375000
-Triggers_accuracy           0.7923258644             0.7830292980
-Agg_avg_recall              0.2145200688             0.2137518912
-Emotion_recall              0.2159821713             0.2130843223
-Triggers_recall             0.2130579664             0.2144194601
-Agg_avg_precision           0.2220106202             0.2192780204
-Emotion_precision           0.2167446844             0.2123309323
-Triggers_precision          0.2272765560             0.2262251084
+Agg_ce_loss                 1.6666419770             2.1884006870
+Agg_avg_f1                  0.4278308981             0.3358491197
+Emotion_f1                  0.5586497030             0.4067009323
+Triggers_f1                 0.2970120932             0.2649973072
+Agg_avg_accuracy            0.3994725964             0.3329938900
+Emotion_accuracy            0.5018174043             0.3994762875
+Triggers_accuracy           0.2971277885             0.2665114926
+Agg_avg_recall              0.2749382554             0.2349752239
+Emotion_recall              0.3369143911             0.2689936168
+Triggers_recall             0.2129621198             0.2009568310
+Agg_avg_precision           0.2736976883             0.2555073102
+Emotion_precision           0.3315881748             0.3007206833
+Triggers_precision          0.2158072017             0.2102939371
+====================================================================
+Epoch 4/25                                          Time: 602.2833s
+====================================================================
+Metric/Loss                 Training                 Validation
+--------------------------------------------------------------------
+Agg_ce_loss                 1.6996712313             2.2200495429
+Agg_avg_f1                  0.3881390972             0.3150518833
+Emotion_f1                  0.4051885353             0.3134729363
+Triggers_f1                 0.3710896591             0.3166308303
+Agg_avg_accuracy            0.3819934431             0.3228105906
+Emotion_accuracy            0.3898510441             0.3287750946
+Triggers_accuracy           0.3741358421             0.3168460867
+Agg_avg_recall              0.2641291610             0.2321832640
+Emotion_recall              0.2953873688             0.2502351198
+Triggers_recall             0.2328709532             0.2141314082
+Agg_avg_precision           0.2630532487             0.2480408518
+Emotion_precision           0.3068282285             0.2851979556
+Triggers_precision          0.2192782689             0.2108837479
+
+trigger_classifier.0.weight has been freezed because triggers_F1 is no more increasing
+trigger_classifier.0.bias has been freezed because triggers_F1 is no more increasing
+
+The training is continuing. Stopping criteria not reached for emotion_F1
+====================================================================
+Epoch 5/25                                          Time: 603.4567s
+====================================================================
+Metric/Loss                 Training                 Validation
+--------------------------------------------------------------------
+Agg_ce_loss                 1.7257318642             2.1416995445
+Agg_avg_f1                  0.4058902251             0.3375630770
+Emotion_f1                  0.3793055334             0.2986134250
+Triggers_f1                 0.4324749167             0.3765127291
+Agg_avg_accuracy            0.4189829663             0.3555426244
+Emotion_accuracy            0.3895303257             0.3290660460
+Triggers_accuracy           0.4484356069             0.3820192028
+Agg_avg_recall              0.2583397250             0.2292989516
+Emotion_recall              0.2707985676             0.2292971935
+Triggers_recall             0.2458808825             0.2293007096
+Agg_avg_precision           0.2680507139             0.2542603139
+Emotion_precision           0.3167316946             0.2946390910
+Triggers_precision          0.2193697333             0.2138815367
+====================================================================
+Epoch 6/25                                          Time: 602.9710s
+====================================================================
+Metric/Loss                 Training                 Validation
+--------------------------------------------------------------------
+Agg_ce_loss                 1.6781931172             2.1306946851
+Agg_avg_f1                  0.4784041747             0.3803296735
+Emotion_f1                  0.5243334326             0.3841466179
+Triggers_f1                 0.4324749167             0.3765127291
+Agg_avg_accuracy            0.4574157223             0.3817282514
+Emotion_accuracy            0.4663958378             0.3814373000
+Triggers_accuracy           0.4484356069             0.3820192028
+Agg_avg_recall              0.2887327044             0.2480177132
+Emotion_recall              0.3315845264             0.2667347169
+Triggers_recall             0.2458808825             0.2293007096
+Agg_avg_precision           0.2692540337             0.2481811563
+Emotion_precision           0.3191383341             0.2824807759
+Triggers_precision          0.2193697333             0.2138815367
+
+emotion_classifier.0.weight has been freezed because emotion_F1 is no more increasing
+emotion_classifier.0.bias has been freezed because emotion_F1 is no more increasing
+emotion_classifier.2.weight has been freezed because emotion_F1 is no more increasing
+emotion_classifier.2.bias has been freezed because emotion_F1 is no more increasing
+
+All the Early Stopper has been activated, best weights reloaded
+
+Train Completed.
+

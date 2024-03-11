@@ -1,6 +1,5 @@
 from typing import Tuple, Dict
 
-
 from DrTorch.modules import TrainableModule
 
 import torch
@@ -36,7 +35,8 @@ class BertOne(TrainableModule):
 
        """
 
-    def __init__(self, bert_model, cls_input_size, hidden_dim, n_emotions, n_triggers, freeze_bert_weights=False, name='FreezedBertOne'):
+    def __init__(self, bert_model, cls_input_size, hidden_dim, n_emotions, n_triggers, freeze_bert_weights=False,
+                 name='FreezedBertOne'):
         """
         Initializes the BertFreezed module.
 
@@ -69,9 +69,9 @@ class BertOne(TrainableModule):
         )
 
         self.trigger_classifier = torch.nn.Sequential(
-            torch.nn.Linear(in_features=cls_input_size, out_features=hidden_dim),
-            torch.nn.ReLU(inplace=True),
-            torch.nn.Linear(in_features=hidden_dim, out_features=n_triggers)
+            # torch.nn.Linear(in_features=cls_input_size, out_features=hidden_dim),
+            # torch.nn.ReLU(inplace=True),
+            torch.nn.Linear(in_features=cls_input_size, out_features=n_triggers)
         )
 
         self.__init_classifier_weights()
@@ -88,7 +88,8 @@ class BertOne(TrainableModule):
         batch_n, n_sentence, n_token = input_shape
 
         for chunks in range(1, n_sentence):
-            if ((n_sentence % chunks) == 0) and ((n_sentence * n_token) / chunks <= self.bert.config.max_position_embeddings):
+            if ((n_sentence % chunks) == 0) and (
+                    (n_sentence * n_token) / chunks <= self.bert.config.max_position_embeddings):
                 return chunks
 
         return n_sentence
@@ -144,7 +145,9 @@ class BertOne(TrainableModule):
             if name == 'emotion_classifier' or name == 'trigger_classifier':
                 for sub_name, sub_module in module.named_children():
                     if isinstance(sub_module, torch.nn.Linear):
-                        torch.nn.init.xavier_normal_(sub_module.weight)
+                        #torch.nn.init.xavier_normal_(sub_module.weight)
+                        torch.nn.init.kaiming_uniform_(sub_module.weight, a=0, mode='fan_in',
+                                                       nonlinearity='relu')
                         if sub_module.bias is not None:
                             torch.nn.init.constant_(sub_module.bias, 0.0)
 

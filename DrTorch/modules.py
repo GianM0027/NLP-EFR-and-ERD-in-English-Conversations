@@ -632,6 +632,7 @@ class TrainableModule(DrTorchModule):
                 if early_stopper and early_stopper(val_history, self):
                     if verbose > 0:
                         print(early_stopper.get_message())
+                    break
 
         finally:
             if early_stopper and early_stopper.restore_weights:

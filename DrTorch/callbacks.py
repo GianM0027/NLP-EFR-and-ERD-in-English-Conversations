@@ -24,7 +24,7 @@
 #                                                                             #
 #                                                                             #
 #                                                                             #
-# File:     __init__.py                                                       #
+# File:     callbacks.py                                                       #
 # Authors:  Davide Femia     <femiadavide04@gmail.com>                        #
 #           Riccardo Murgia  <murgiariccardo96@gmail.com>                     #
 #                                                                             #

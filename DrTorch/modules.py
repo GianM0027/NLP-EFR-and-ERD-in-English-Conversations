@@ -24,7 +24,7 @@
 #                                                                             #
 #                                                                             #
 #                                                                             #
-# File:     __init__.py                                                       #
+# File:     modules.py                                                       #
 # Authors:  Davide Femia     <femiadavide04@gmail.com>                        #
 #           Riccardo Murgia  <murgiariccardo96@gmail.com>                     #
 #                                                                             #
@@ -35,7 +35,6 @@
 
 
 """
-
 
 from typing import Union, Any, Dict, List, Tuple, Callable, Optional
 
@@ -420,6 +419,55 @@ class TrainableModule(DrTorchModule):
         sys.stdout.write(out_str)
         sys.stdout.flush()
 
+    @staticmethod
+    def __apply_function(input_data: Dict[str, torch.Tensor] | torch.Tensor, func: Callable) -> (Dict[str, torch.Tensor] |
+                                                                                                 torch.Tensor):
+        """
+        Apply a given function to the input data.
+
+        :params input_data: Input data to which the function will be applied.
+        :params func: A callable function to be applied to the input data.
+
+        :return:  Output data after applying the function.
+
+        """
+        output_data = {}
+
+        if isinstance(input_data, dict):
+            for key, value in input_data.items():
+                output_data[key] = func(value, dim=-1).detach().cpu()
+        elif torch.is_tensor(input_data):
+            output_data = func(input_data, dim=-1).detach().cpu()
+        else:
+            raise ValueError("Input data should be a tensor or a dictionary of tensors.")
+
+        return output_data
+
+    @staticmethod
+    def __merge_batch_predictions(data_list: list[Dict[str, torch.Tensor]] | list[torch.Tensor]) -> (Dict[str, torch.Tensor] |
+                                                                                                     torch.Tensor):
+        """
+        Merge a list of dictionaries or tensors along the batch dimension.
+
+        :params data_list (list): A list containing dictionaries or tensors.
+
+        :return: Merged predictions. If the input is a list of dictionaries, returns a dictionary where the values
+                are tensors concatenated along the batch dimension. If the input is a list of tensors, returns
+                a single tensor obtained by concatenating all tensors along the batch dimension.
+
+        """
+
+        if isinstance(data_list[0], dict):
+            merged_dict = {}
+            for key in data_list[0].keys():
+                merged_dict[key] = torch.cat([d[key] for d in data_list], dim=0)
+            predictions = merged_dict
+        elif isinstance(data_list[0], torch.Tensor):
+            predictions = torch.cat(data_list, dim=0)
+        else:
+            raise ValueError("Input data should be either a list of dictionaries with tensors or a list of tensors.")
+        return predictions
+
     def validate(self,
                  data_loader: torch.utils.data.DataLoader,
                  criterion: Criterion | MultyHeadCriterion,
@@ -639,7 +687,8 @@ class TrainableModule(DrTorchModule):
                         log_params[f'train_{train_key}'] = train_value
                         log_params[f'val_{val_key}'] = val_value
 
-                    additional_interaction_data = interaction_function_with_wandb(self) if interaction_function_with_wandb is not None else {}
+                    additional_interaction_data = interaction_function_with_wandb(
+                        self) if interaction_function_with_wandb is not None else {}
                     wandb.log({**log_params, **additional_interaction_data})
 
                 if verbose > 0:
@@ -664,7 +713,7 @@ class TrainableModule(DrTorchModule):
         return {'train': train_history, 'val': val_history}
 
     def predict(self,
-                data: Union[torch.Tensor, Dict],
+                data: torch.utils.data.DataLoader[torch.Tensor] | torch.utils.data.DataLoader[Dict[str, torch.Tensor]],
                 model_output_function_transformation: Callable = torch.round) -> torch.Tensor:
         """
         Generate predictions for the given input data using the trained model.
@@ -680,11 +729,12 @@ class TrainableModule(DrTorchModule):
 
         predicted_labels_list = []
 
-        for batch_data, y in data:
-            batch_data_device = self.to_device(data=batch_data, device=self.device)
+        for batch_data, _ in data:
+            batch_data_device = self._to_device(data=batch_data, device=self.device)
             batch_output = self(batch_data_device)
-            batch_output = model_output_function_transformation(batch_output).detach().cpu()
+            batch_output = TrainableModule.__apply_function(batch_output, model_output_function_transformation)
             predicted_labels_list.append(batch_output)
-        predicted_labels = torch.cat(predicted_labels_list, dim=0)
+
+        predicted_labels = TrainableModule.__merge_batch_predictions(predicted_labels_list)
 
         return predicted_labels

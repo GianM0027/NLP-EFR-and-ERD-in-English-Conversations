@@ -69,9 +69,9 @@ class BertOne(TrainableModule):
         )
 
         self.trigger_classifier = torch.nn.Sequential(
-            # torch.nn.Linear(in_features=cls_input_size, out_features=hidden_dim),
-            # torch.nn.ReLU(inplace=True),
-            torch.nn.Linear(in_features=cls_input_size, out_features=n_triggers)
+            torch.nn.Linear(in_features=cls_input_size, out_features=hidden_dim),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.Linear(in_features=hidden_dim, out_features=n_triggers)
         )
 
         self.__init_classifier_weights()

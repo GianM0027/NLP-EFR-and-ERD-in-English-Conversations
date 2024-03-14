@@ -24,7 +24,7 @@
 #                                                                             #
 #                                                                             #
 #                                                                             #
-# File:     modules.py                                                       #
+# File:     modules.py                                                        #
 # Authors:  Davide Femia     <femiadavide04@gmail.com>                        #
 #           Riccardo Murgia  <murgiariccardo96@gmail.com>                     #
 #                                                                             #
@@ -509,7 +509,7 @@ class TrainableModule(DrTorchModule):
             else:
                 raise TypeError('Inconsistent type for metric parameter. '
                                 'Only Metric or MultyHeadMetric object allowed.')
-
+            break
         aggregated_losses = torch.tensor([], device='cpu')
 
         self.eval()
@@ -527,7 +527,7 @@ class TrainableModule(DrTorchModule):
 
                 for metric in metrics:
                     metric.update_state(outputs, labels)
-
+                break
         results[criterion.name] = criterion.reduction_function(aggregated_losses).item()
 
         for metric in metrics:
@@ -663,7 +663,7 @@ class TrainableModule(DrTorchModule):
                                                    criterion_name=criterion.name,
                                                    loss=loss,
                                                    metrics_results=metrics_value)
-
+                    break
                 train_results = self.validate(data_loader=train_loader,
                                               criterion=criterion,
                                               metrics=metrics,
@@ -682,13 +682,11 @@ class TrainableModule(DrTorchModule):
                     val_history[key].append(value)
 
                 if interaction_with_wandb:
-                    for (train_key, train_value), (val_key, val_value) in zip(train_results.items(),
-                                                                              val_results.items()):
-                        log_params[f'train_{train_key}'] = train_value
-                        log_params[f'val_{val_key}'] = val_value
+                    for (train_key, train_value), (val_key, val_value) in zip(train_results.items(), val_results.items()):
+                        log_params['train_' + 'loss' if criterion.name is train_key else 'train_' + train_key] = train_value
+                        log_params['val_' + 'loss' if criterion.name is train_key else 'val_' + train_key] = val_value
 
-                    additional_interaction_data = interaction_function_with_wandb(
-                        self) if interaction_function_with_wandb is not None else {}
+                    additional_interaction_data = interaction_function_with_wandb(self) if interaction_function_with_wandb is not None else {}
                     wandb.log({**log_params, **additional_interaction_data})
 
                 if verbose > 0:
@@ -699,10 +697,15 @@ class TrainableModule(DrTorchModule):
                                                training_time=end_time - start_time,
                                                verbose=verbose)
 
-                if early_stopper and early_stopper(val_history, self):
-                    if verbose > 0:
-                        print(early_stopper.get_message())
-                    break
+                if early_stopper is not None:
+                    stop_flag = early_stopper(val_history, self)
+                    if stop_flag:
+                        if verbose > 0:
+                            early_stopper.get_message()
+                        break
+                    if not stop_flag:
+                        if verbose > 0:
+                            early_stopper.get_message()
 
         finally:
             if early_stopper and early_stopper.restore_weights:

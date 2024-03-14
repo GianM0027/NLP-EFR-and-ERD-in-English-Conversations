@@ -395,8 +395,6 @@ def collect_results(
 
     df = pd.DataFrame(data=dataframe_dict)
 
-    display(df)
-
     joblib.dump(df, path_to_save_search_results)
 
     return df

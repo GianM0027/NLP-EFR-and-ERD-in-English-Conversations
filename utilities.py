@@ -93,7 +93,8 @@ def split_dataset(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Data
     return train_df, val_df, test_df
 
 
-def plot_emotion_distribution(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.DataFrame, column_name, title) -> None:
+def plot_emotion_distribution(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.DataFrame, column_name,
+                              title) -> None:
     """
     Plot the distribution of emotions in the three datasets
 
@@ -330,7 +331,7 @@ def pad_utterances(sequences: List[torch.Tensor], pad_token_id):
     return torch.stack(padded_sequences)
 
 
-def remove_redundant_cls(input_ids:torch.Tensor, attention_mask:torch.Tensor, token_type_ids:torch.Tensor):
+def remove_redundant_cls(input_ids: torch.Tensor, attention_mask: torch.Tensor, token_type_ids: torch.Tensor):
     """
     Removes the redundant [CLS] token from the input tensors.
 
@@ -356,7 +357,7 @@ def remove_redundant_cls(input_ids:torch.Tensor, attention_mask:torch.Tensor, to
     return input_ids, attention_mask, token_type_ids
 
 
-def tokenize_data(data: pd.Series, max_tokenized_length: int,  tokenizer) -> Dict[str, torch.Tensor]:
+def tokenize_data(data: pd.Series, max_tokenized_length: int, tokenizer) -> Dict[str, torch.Tensor]:
     """
     Tokenize a pandas Series of text data.
 
@@ -503,3 +504,7 @@ def compute_f1_per_dialogues(emotion_f1,
     return pd.DataFrame(data={'Emotion_f1': list(sequences_emotions_f1.values()),
                               'Trigger_f1': list(sequences_triggers_f1.values())},
                         index=list(sequences_emotions_f1.keys()))
+
+
+def reshape_loss_input(x):
+    return x.view(-1, x.shape[-1])

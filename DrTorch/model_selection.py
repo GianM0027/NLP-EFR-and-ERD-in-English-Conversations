@@ -24,7 +24,7 @@
 #                                                                             #
 #                                                                             #
 #                                                                             #
-# File:     model_selection.py                                                       #
+# File:     model_selection.py                                                #
 # Authors:  Davide Femia     <femiadavide04@gmail.com>                        #
 #           Riccardo Murgia  <murgiariccardo96@gmail.com>                     #
 #                                                                             #
@@ -37,23 +37,23 @@
 """
 
 
-import inspect
-
+from IPython.core.display_functions import display
 from IPython.utils.capture import capture_output
 from contextlib import redirect_stdout
+import inspect
 from io import StringIO
 
 from .wrappers import Criterion, OptimizerWrapper
-from .metrics import Metric
-from .callbacks import EarlyStopper
+from .metrics import Metric, SingleHeadMetric, MultyHeadMetric
+from .callbacks import EarlyStopper, MultipleEarlyStoppers
 from .utilities import DataLoaderStrategy
 
 import torch
 
-import wandb
-import joblib
 import numpy as np
 import pandas as pd
+import wandb
+import joblib
 
 from tqdm import tqdm
 import itertools
@@ -65,18 +65,19 @@ FIT_PARAMETER_TYPES = torch.utils.data.DataLoader | torch.utils.data.DataLoader 
                       OptimizerWrapper | int | Optional[EarlyStopper] | bool
 
 
-def grid_search_train_validation(train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame] | Tuple[pd.Series, pd.Series],
-                                 val_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame] | Tuple[pd.Series, pd.Series],
-                                 dataloader_builder: DataLoaderStrategy,
-                                 shuffle: bool,
-                                 model_hyperparameters_to_test: List[Dict[str, Any]],
-                                 training_hyperparameters_to_test: List[Dict[str, FIT_PARAMETER_TYPES]],
-                                 hyperparameters_key_to_save: List[str],
-                                 device: str,
-                                 path_to_save_grid_search_results: str,
-                                 seeds: Optional[List[int]] = None,
-                                 save_loss_values: bool = False,
-                                 wandb_params: Optional[Dict[str, str]] = None) -> pd.DataFrame:
+def grid_search_train_validation(
+        train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame] | Tuple[pd.Series, pd.Series],
+        val_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame] | Tuple[pd.Series, pd.Series],
+        dataloader_builder: DataLoaderStrategy,
+        shuffle: bool,
+        model_hyperparameters_to_test: List[Dict[str, Any]],
+        training_hyperparameters_to_test: List[Dict[str, FIT_PARAMETER_TYPES]],
+        hyperparameters_key_to_save: List[str],
+        device: str,
+        path_to_save_grid_search_results: str,
+        seeds: Optional[List[int]] = None,
+        save_loss_values: bool = False,
+        wandb_params: Optional[Dict[str, str]] = None) -> pd.DataFrame:
     """
     Perform a grid search train validation over a combination of model and training hyperparameters for a
     deep learning model.
@@ -192,17 +193,18 @@ def randomized_search_train_validation(
                            wandb_params=wandb_params)
 
 
-def collect_results(train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame] | Tuple[pd.Series, pd.Series],
-                    val_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame] | Tuple[pd.Series, pd.Series],
-                    dataloader_builder: DataLoaderStrategy,
-                    iterator: Any,
-                    shuffle: bool,
-                    device: str,
-                    hyperparameters_key_to_save: List[str],
-                    path_to_save_search_results: str,
-                    seeds: Optional[List[int]] = None,
-                    save_loss_values: bool = False,
-                    wandb_params: Optional[dict[str, str]] = None) -> pd.DataFrame:
+def collect_results(
+        train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame] | Tuple[pd.Series, pd.Series],
+        val_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.DataFrame, pd.DataFrame] | Tuple[pd.Series, pd.Series],
+        dataloader_builder: DataLoaderStrategy,
+        iterator: Any,
+        shuffle: bool,
+        device: str,
+        hyperparameters_key_to_save: List[str],
+        path_to_save_search_results: str,
+        seeds: Optional[List[int]] = None,
+        save_loss_values: bool = False,
+        wandb_params: Optional[dict[str, str]] = None) -> pd.DataFrame:
     """
     Collects and stores results from multiple runs of a training process.
 
@@ -240,14 +242,26 @@ def collect_results(train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.Dat
     run_idx = 0
 
     for n_run, (training_hyperparameters, model_hyperparameters) in iterator:
-
         criterion = training_hyperparameters['criterion']
 
         early_stopper_exist = 'early_stopper' in training_hyperparameters and training_hyperparameters[
             'early_stopper'] is not None
-        history_idx = -1
-        if early_stopper_exist:
-            history_idx -= training_hyperparameters['early_stopper'].patience
+
+        train_results = {criterion.name: []}
+        val_results = {criterion.name: []}
+
+        history_indexes_to_reload = {criterion.name: -1}
+
+        for metric in training_hyperparameters.get('metrics', []):
+            if isinstance(metric, SingleHeadMetric) or metric.aggregate_metrics_function is not None:
+                history_indexes_to_reload[metric.name] = -1
+                train_results[metric.name] = []
+                val_results[metric.name] = []
+            if isinstance(metric, MultyHeadMetric):
+                for current_head_metric in metric.metrics_functions.values():
+                    history_indexes_to_reload[current_head_metric.name] = -1
+                    train_results[current_head_metric.name] = []
+                    val_results[current_head_metric.name] = []
 
         if wandb_params is not None and not any([flag in training_hyperparameters for flag in wandb_flags]):
             warning_message = '''Warning: Wandb connection started without logging anything. Maybe you want to add some training hyperparameters wandb related:'''
@@ -278,16 +292,6 @@ def collect_results(train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.Dat
         new_training_hyperparameters = training_hyperparameters.copy()
         new_training_hyperparameters.pop('batch_size')
 
-        train_results = dict()
-        val_results = dict()
-
-        train_results[criterion.name] = []
-        val_results[criterion.name] = []
-
-        for metric in training_hyperparameters.get('metrics', []):
-            train_results[metric.name] = []
-            val_results[metric.name] = []
-
         fitting_times = []
 
         for idx, test_iteration in enumerate(test_iterator):
@@ -300,18 +304,21 @@ def collect_results(train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.Dat
             if seeds is not None:
                 torch.manual_seed(test_iteration)
                 np.random.seed(test_iteration)
+
                 if wandb_params is not None:
                     config_params['seed'] = test_iteration
 
             new_model_hyperparameters = model_hyperparameters.copy()
             new_model_hyperparameters.pop('model_class')
+
             net = model_hyperparameters['model_class'](**new_model_hyperparameters).to(device)
+
             if wandb_params is not None:
                 captured_output = StringIO()
                 with capture_output() as _:
                     with redirect_stdout(captured_output):
                         wandb.init(config=config_params, name=f'run_{run_idx}', **wandb_params)
-                wandb.watch(net, total_hyperparameters['criterion'], log="all", log_graph=True)
+                        wandb.watch(net, total_hyperparameters['criterion'], log="all", log_graph=True)
 
             start_time = time.time()
             result = net.fit(train_loader=train_data_loader,
@@ -321,19 +328,41 @@ def collect_results(train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.Dat
             end_time = time.time()
             fitting_times.append(end_time - start_time)
 
-            train_results[criterion.name].append(result['train'][criterion.name][history_idx])
-            val_results[criterion.name].append(result['val'][criterion.name][history_idx])
+            if early_stopper_exist:
+                early_stopper = training_hyperparameters['early_stopper']
+                if isinstance(early_stopper, EarlyStopper):
+                    for key in history_indexes_to_reload.keys():
+                        history_indexes_to_reload[key] = early_stopper.history_index_to_reload
+                elif isinstance(early_stopper, MultipleEarlyStoppers):
+                    indexes_for_aggregate_curves = [stopper.history_index_to_reload for stopper in early_stopper.stoppers.values()]
+                    history_indexes_to_reload[criterion.name] = indexes_for_aggregate_curves
+                    for head_name_s, stopper in early_stopper.stoppers.items():
+                        for metric in training_hyperparameters.get('metrics', []):
+                            if metric.aggregate_metrics_function is not None:
+                                history_indexes_to_reload[metric.name] = indexes_for_aggregate_curves
+                            history_indexes_to_reload[
+                                metric.metrics_functions[head_name_s].name] = stopper.history_index_to_reload
 
-            for metric in training_hyperparameters.get('metrics', []):
-                train_results[metric.name].append(result['train'][metric.name][history_idx])
-                val_results[metric.name].append(result['val'][metric.name][history_idx])
+            for curve_name, index_to_reload in history_indexes_to_reload.items():
+                if isinstance(index_to_reload, list):
+                    train_values = [result['train'][curve_name][index] for index in index_to_reload]
+                    val_values = [result['val'][curve_name][index] for index in index_to_reload]
+                    train_value = sum(train_values) / len(train_values)
+                    val_value = sum(val_values) / len(val_values)
+                else:
+                    train_value = result['train'][curve_name][index_to_reload]
+                    val_value = result['val'][curve_name][index_to_reload]
+
+                train_results[curve_name].append(train_value)
+                val_results[curve_name].append(val_value)
 
             run_idx += 1
 
-        for key in hyperparameters_key_to_save:
-            dataframe_dict[key].append(total_hyperparameters[key])
-
         for i, seed in enumerate(seeds):
+
+            for key in hyperparameters_key_to_save:
+                dataframe_dict[key].append(total_hyperparameters[key])
+
             dataframe_dict['seed'].append(seed)
             dataframe_dict['time'].append(fitting_times[i])
 
@@ -343,15 +372,30 @@ def collect_results(train_data: Tuple[torch.Tensor, torch.Tensor] | Tuple[pd.Dat
 
             for metric in training_hyperparameters.get('metrics', []):
 
-                if metric.name + '_train' not in dataframe_dict:
-                    dataframe_dict[metric.name + '_train'] = []
-                dataframe_dict[metric.name + '_train'].append(train_results[metric.name][i])
+                if isinstance(metric, SingleHeadMetric) or metric.aggregate_metrics_function is not None:
+                    if metric.name + '_train' not in dataframe_dict:
+                        dataframe_dict[metric.name + '_train'] = []
+                    dataframe_dict[metric.name + '_train'].append(train_results[metric.name][i])
 
-                if metric.name + '_val' not in dataframe_dict:
-                    dataframe_dict[metric.name + '_val'] = []
-                dataframe_dict[metric.name + '_val'].append(val_results[metric.name][i])
+                    if metric.name + '_val' not in dataframe_dict:
+                        dataframe_dict[metric.name + '_val'] = []
+                    dataframe_dict[metric.name + '_val'].append(val_results[metric.name][i])
+
+                if isinstance(metric, MultyHeadMetric):
+                    for current_head_metric in metric.metrics_functions.values():
+                        if current_head_metric.name + '_train' not in dataframe_dict:
+                            dataframe_dict[current_head_metric.name + '_train'] = []
+                        dataframe_dict[current_head_metric.name + '_train'].append(
+                            train_results[current_head_metric.name][i])
+
+                        if current_head_metric.name + '_val' not in dataframe_dict:
+                            dataframe_dict[current_head_metric.name + '_val'] = []
+                        dataframe_dict[current_head_metric.name + '_val'].append(
+                            val_results[current_head_metric.name][i])
 
     df = pd.DataFrame(data=dataframe_dict)
+
+    display(df)
 
     joblib.dump(df, path_to_save_search_results)
 

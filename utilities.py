@@ -166,6 +166,56 @@ def plot_triggers_per_emotion(train_df: pd.DataFrame, val_df: pd.DataFrame, test
     plt.show()
 
 
+def plot_all_distributions(df): # TODO CANCELLA LA FUNZIONE QUANDO ABBIAMO FINITO TUTTO
+    """
+    FUNZIONE DA CANCELLARE, L'HO FATTA SOLO PER PRODURRE UN GRAFICO PER IL REPORT E LA TENGO QUA PER SICUREZZA
+    Args:
+        df:
+
+    Returns:
+
+    """
+    plt.figure(figsize=(18, 6))
+
+    # emotion dist
+    plt.subplot(1, 3, 1)
+    flatten_values = [item for sublist in df["emotions"] for item in sublist]
+    values, counts = np.unique(flatten_values, return_counts=True)
+    plt.bar(values, counts)
+    plt.title("Emotions distribution")
+    plt.grid()
+    plt.xticks(rotation=45)  # Rotate labels to avoid overlap
+    plt.ylabel('Counts')
+    plt.xlabel('Emotions')
+
+    plt.subplot(1, 3, 2)
+    flatten_emotions = [item for sublist in df["emotions"] for item in sublist]
+    flatten_triggers = [item for sublist in df["triggers"] for item in sublist]
+
+    count_dict = {emotion: 0 for emotion in np.unique(flatten_emotions)}
+    for idx in range(len(flatten_triggers)):
+        if flatten_triggers[idx] == 1:
+            count_dict[flatten_emotions[idx]] += 1
+
+    plt.bar(list(count_dict.keys()), list(count_dict.values()))
+    plt.title("Positive triggers per emotion")
+    plt.xlabel('Emotions')
+    plt.grid()
+    plt.xticks(rotation=45)
+
+    plt.subplot(1, 3, 3)
+    flatten_values = [item for sublist in df["triggers"] for item in sublist]
+    values, counts = np.unique(flatten_values, return_counts=True)
+    plt.bar(values, counts)
+    plt.title("Triggers distribution")
+    plt.grid()
+    plt.xticks(rotation=45)  # Rotate labels to avoid overlap
+    plt.xlabel('Trigger value')
+
+    plt.tight_layout()
+    plt.show()
+
+
 def display_dialogue(dataframe: pd.DataFrame, utterance_id: str | int) -> None:
     """
     Display the data relate to a specific utterance id

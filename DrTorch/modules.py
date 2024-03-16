@@ -495,21 +495,7 @@ class TrainableModule(DrTorchModule):
         if metrics is None:
             metrics = []
 
-        results = {criterion.name: []}
-        for metric in metrics:
-            if isinstance(metric, SingleHeadMetric):
-                results[metric.name] = []
-                results[metric.name] = []
-            elif isinstance(metric, MultyHeadMetric):
-                results[metric.name] = []
-                results[metric.name] = []
-                for head_metric in metric.metrics_functions.values():
-                    results[head_metric.name] = []
-                    results[head_metric.name] = []
-            else:
-                raise TypeError('Inconsistent type for metric parameter. '
-                                'Only Metric or MultyHeadMetric object allowed.')
-            break
+        results = {}
         aggregated_losses = torch.tensor([], device='cpu')
 
         self.eval()

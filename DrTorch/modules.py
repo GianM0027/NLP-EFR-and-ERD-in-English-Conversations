@@ -649,7 +649,7 @@ class TrainableModule(DrTorchModule):
                                                    criterion_name=criterion.name,
                                                    loss=loss,
                                                    metrics_results=metrics_value)
-
+                    break
                 train_results = self.validate(data_loader=train_loader,
                                               criterion=criterion,
                                               metrics=metrics,
@@ -716,6 +716,7 @@ class TrainableModule(DrTorchModule):
 
         """
 
+        self.eval()
         predicted_labels_list = []
 
         for batch_data, _ in data:

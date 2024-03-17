@@ -273,21 +273,8 @@ def collect_results(
         dataloader_params = [element for element in dataloader_params if
                              element not in ['data', 'labels', 'shuffle', 'device']]
         dataloader_params = {param: total_hyperparameters[
-            param] if param in total_hyperparameters else dataloader_builder.get_dataloader_params(param,
-                                                                                                   total_hyperparameters)
+            param] if param in total_hyperparameters else dataloader_builder.get_dataloader_params(param,total_hyperparameters)
                              for param in dataloader_params}
-
-        train_data_loader = dataloader_builder.create(data=train_input,
-                                                      labels=train_labels,
-                                                      shuffle=shuffle,
-                                                      device=device,
-                                                      **dataloader_params)
-
-        val_data_loader = dataloader_builder.create(data=val_input,
-                                                    labels=val_labels,
-                                                    shuffle=False,
-                                                    device=device,
-                                                    **dataloader_params)
 
         new_training_hyperparameters = training_hyperparameters.copy()
         new_training_hyperparameters.pop('batch_size')
@@ -307,6 +294,18 @@ def collect_results(
 
                 if wandb_params is not None:
                     config_params['seed'] = test_iteration
+
+            train_data_loader = dataloader_builder.create(data=train_input,
+                                                          labels=train_labels,
+                                                          shuffle=shuffle,
+                                                          device=device,
+                                                          **dataloader_params)
+
+            val_data_loader = dataloader_builder.create(data=val_input,
+                                                        labels=val_labels,
+                                                        shuffle=False,
+                                                        device=device,
+                                                        **dataloader_params)
 
             new_model_hyperparameters = model_hyperparameters.copy()
             new_model_hyperparameters.pop('model_class')

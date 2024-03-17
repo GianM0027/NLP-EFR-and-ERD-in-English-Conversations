@@ -42,6 +42,7 @@ from typing import List, Dict
 import torch
 import numpy as np
 import shutil
+import copy
 
 
 class EarlyStopper:
@@ -252,7 +253,8 @@ class MultipleEarlyStoppers:
         """
 
         self.freezing_msg = ''
-        model_weights_copy = model_ptr.state_dict()
+        #model_weights_copy = model_ptr.state_dict()
+        model_weights_copy = copy.deepcopy(model_ptr.state_dict())
 
         for head_name, stopper in self.stoppers.items():
 
@@ -270,6 +272,9 @@ class MultipleEarlyStoppers:
                                                   f'is no more {"decreasing" if stopper.mode == "min" else "increasing"}\n')
                     else:
                         if self.restore_weights:
+                            if layer_name in ['emotion_classifier.0.weight', 'emotion_classifier.0.bias', 'emotion_classifier.2.weight', 'emotion_classifier.2.bias',
+                                              'trigger_classifier.0.weight', 'trigger_classifier.0.bias', 'trigger_classifier.2.weight', 'trigger_classifier.2.bias']:
+                                self.freezing_msg += f'{layer_name}, ristabilito all epoca corrente\n'
                             param.data.copy_(model_weights_copy[layer_name])
 
         if self.freezing_msg != '':

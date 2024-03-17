@@ -508,8 +508,8 @@ def compute_unrolled_f1(emotion_f1,
     unrolled_predicted_emotions = [emotion_to_index[emotion] for emotion in predictions_emotions.sum()]
     unrolled_target_emotion = [emotion_to_index[emotion] for emotion in targets_emotions.sum()]
 
-    unrolled_predicted_triggers = targets_triggers.sum()
-    unrolled_target_triggers = predictions_triggers.sum()
+    unrolled_predicted_triggers = predictions_triggers.sum()
+    unrolled_target_triggers = targets_triggers.sum()
 
     unrolled_emotion_f1 = emotion_f1(predicted_classes=torch.tensor(unrolled_predicted_emotions, dtype=torch.int),
                                      target_classes=torch.tensor(unrolled_target_emotion, dtype=torch.int))
@@ -542,14 +542,11 @@ def compute_f1_per_dialogues(emotion_f1,
     sequences_emotions_f1 = {}
     sequences_triggers_f1 = {}
     for dialog_id in targets_emotions.index:
-        sequences_emotions_f1[dialog_id] = emotion_f1(
-            predicted_classes=torch.tensor([emotion_to_index[e] for e in predictions_emotions[dialog_id]],
-                                           dtype=torch.int),
-            target_classes=torch.tensor([emotion_to_index[e] for e in targets_emotions[dialog_id]], dtype=torch.int))
+        sequences_emotions_f1[dialog_id] = emotion_f1(predicted_classes=torch.tensor([emotion_to_index[e] for e in predictions_emotions[dialog_id]], dtype=torch.int),
+                                                      target_classes=torch.tensor([emotion_to_index[e] for e in targets_emotions[dialog_id]], dtype=torch.int))
 
-        sequences_triggers_f1[dialog_id] = trigger_f1(
-            predicted_classes=torch.tensor([predictions_triggers[dialog_id]], dtype=torch.int),
-            target_classes=torch.tensor([targets_triggers[dialog_id]], dtype=torch.int))
+        sequences_triggers_f1[dialog_id] = trigger_f1(predicted_classes=torch.tensor([predictions_triggers[dialog_id]], dtype=torch.int),
+                                                      target_classes=torch.tensor([targets_triggers[dialog_id]], dtype=torch.int))
 
     return pd.DataFrame(data={'Emotion_f1': list(sequences_emotions_f1.values()),
                               'Trigger_f1': list(sequences_triggers_f1.values())},

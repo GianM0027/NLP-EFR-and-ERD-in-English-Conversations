@@ -177,17 +177,18 @@ def plot_all_distributions(df): # TODO CANCELLA LA FUNZIONE QUANDO ABBIAMO FINIT
     """
     plt.figure(figsize=(18, 6))
 
-    # emotion dist
+    # emotion distribution
     plt.subplot(1, 3, 1)
     flatten_values = [item for sublist in df["emotions"] for item in sublist]
     values, counts = np.unique(flatten_values, return_counts=True)
     plt.bar(values, counts)
-    plt.title("Emotions distribution")
-    plt.grid()
+    plt.title("Emotion distribution", fontsize = 15)
+    plt.grid(color='gray', linestyle=':', linewidth=0.5, alpha=0.5)
     plt.xticks(rotation=45)  # Rotate labels to avoid overlap
-    plt.ylabel('Counts')
-    plt.xlabel('Emotions')
+    plt.ylabel('Counts', fontsize = 12)
+    plt.xlabel('Emotions', fontsize = 12)
 
+    # positive triggers per emotion
     plt.subplot(1, 3, 2)
     flatten_emotions = [item for sublist in df["emotions"] for item in sublist]
     flatten_triggers = [item for sublist in df["triggers"] for item in sublist]
@@ -198,19 +199,21 @@ def plot_all_distributions(df): # TODO CANCELLA LA FUNZIONE QUANDO ABBIAMO FINIT
             count_dict[flatten_emotions[idx]] += 1
 
     plt.bar(list(count_dict.keys()), list(count_dict.values()))
-    plt.title("Positive triggers per emotion")
-    plt.xlabel('Emotions')
-    plt.grid()
+    plt.title("Positive triggers per emotion", fontsize = 15)
+    plt.xlabel('Emotions', fontsize = 12)
+    plt.grid(color='gray', linestyle=':', linewidth=0.5, alpha=0.5)
     plt.xticks(rotation=45)
 
+    # trigger distribution
     plt.subplot(1, 3, 3)
     flatten_values = [item for sublist in df["triggers"] for item in sublist]
     values, counts = np.unique(flatten_values, return_counts=True)
     plt.bar(values, counts)
-    plt.title("Triggers distribution")
-    plt.grid()
-    plt.xticks(rotation=45)  # Rotate labels to avoid overlap
-    plt.xlabel('Trigger value')
+    plt.title("Trigger distribution", fontsize = 15)
+    plt.grid(color='gray', linestyle=':', linewidth=0.5, alpha=0.5)
+    plt.xticks([0, 1])  # Set x-ticks to only include 0 and 1
+    plt.xlabel('Trigger value', fontsize = 12)
+    plt.show()
 
     plt.tight_layout()
     plt.show()

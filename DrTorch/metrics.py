@@ -38,7 +38,6 @@
 
 
 from typing import Optional, Callable, List, Any, Dict, Tuple
-from sympy import Float
 
 from abc import ABC, abstractmethod
 
@@ -187,7 +186,7 @@ class SingleHeadMetric(Metric, ABC):
         self.target_transform = target_transform
 
 
-class MultyHeadMetric(Metric):
+class MultiHeadMetric(Metric):
     """
     Multi-head metric implementation for evaluating multiple metrics on different subsets of predictions and targets.
 
@@ -311,7 +310,7 @@ class MultyHeadMetric(Metric):
         for metric in self.metrics_functions.values():
             metric.reset_state()
 
-    def get_result(self) -> Dict[str, Float]:
+    def get_result(self) -> Dict[str, float]:
         """
         Retrieves the results of all individual metrics.
 
@@ -441,7 +440,7 @@ class F1_Score(SingleHeadMetric):
     def __call__(self,
                  predicted_classes: torch.Tensor,
                  target_classes: torch.Tensor,
-                 accumulate_statistic: bool = False):
+                 accumulate_statistic: bool = False) -> np.array:
         """
         Compute the F1 Score based on predicted and target classes.
 
@@ -634,7 +633,7 @@ class Accuracy(SingleHeadMetric):
     def __call__(self,
                  predicted_classes: torch.Tensor,
                  target_classes: torch.Tensor,
-                 accumulate_statistic: bool = False):
+                 accumulate_statistic: bool = False) -> float:
         """
         Compute the Accuracy metric based on predicted and target classes.
 
@@ -655,7 +654,7 @@ class Accuracy(SingleHeadMetric):
 
     def update_state(self,
                      predicted_classes: torch.Tensor,
-                     target_classes: torch.Tensor) -> Tuple[Float, Float]:
+                     target_classes: torch.Tensor) -> Tuple[float, float]:
         """
         Update the internal state of the Accuracy metric.
 
@@ -799,7 +798,7 @@ class Recall(SingleHeadMetric):
     def __call__(self,
                  predicted_classes: torch.Tensor,
                  target_classes: torch.Tensor,
-                 accumulate_statistic: bool = False):
+                 accumulate_statistic: bool = False) -> float:
         """
         Compute the Recall Score based on predicted and target classes.
 
@@ -902,7 +901,7 @@ class Recall(SingleHeadMetric):
             result = np.mean(recalls)
         elif self.mode == 'micro':
             result = np.sum(self.tps[self.classes_to_consider]) / (
-                        np.sum(self.tps[self.classes_to_consider]) + np.sum(self.fns[self.classes_to_consider]))
+                    np.sum(self.tps[self.classes_to_consider]) + np.sum(self.fns[self.classes_to_consider]))
         else:
             raise ValueError("Undefined mode specified, available modes are 'none', 'binary','macro' and 'micro'")
 
@@ -998,7 +997,7 @@ class Precision(SingleHeadMetric):
     def __call__(self,
                  predicted_classes: torch.Tensor,
                  target_classes: torch.Tensor,
-                 accumulate_statistic: bool = False):
+                 accumulate_statistic: bool = False) -> float:
         """
         Compute the Recall Score based on predicted and target classes.
 

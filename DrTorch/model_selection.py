@@ -37,14 +37,13 @@
 """
 
 
-from IPython.core.display_functions import display
 from IPython.utils.capture import capture_output
 from contextlib import redirect_stdout
 import inspect
 from io import StringIO
 
 from .wrappers import Criterion, OptimizerWrapper
-from .metrics import Metric, SingleHeadMetric, MultyHeadMetric
+from .metrics import Metric, SingleHeadMetric, MultiHeadMetric
 from .callbacks import EarlyStopper, MultipleEarlyStoppers
 from .utilities import DataLoaderStrategy
 
@@ -257,7 +256,7 @@ def collect_results(
                 history_indexes_to_reload[metric.name] = -1
                 train_results[metric.name] = []
                 val_results[metric.name] = []
-            if isinstance(metric, MultyHeadMetric):
+            if isinstance(metric, MultiHeadMetric):
                 for current_head_metric in metric.metrics_functions.values():
                     history_indexes_to_reload[current_head_metric.name] = -1
                     train_results[current_head_metric.name] = []
@@ -380,7 +379,7 @@ def collect_results(
                         dataframe_dict[metric.name + '_val'] = []
                     dataframe_dict[metric.name + '_val'].append(val_results[metric.name][i])
 
-                if isinstance(metric, MultyHeadMetric):
+                if isinstance(metric, MultiHeadMetric):
                     for current_head_metric in metric.metrics_functions.values():
                         if current_head_metric.name + '_train' not in dataframe_dict:
                             dataframe_dict[current_head_metric.name + '_train'] = []

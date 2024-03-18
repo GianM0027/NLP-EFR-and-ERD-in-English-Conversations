@@ -131,7 +131,7 @@ class Criterion(AbstractCriterion):
         return output
 
 
-class MultyHeadCriterion(AbstractCriterion):
+class MultiHeadCriterion(AbstractCriterion):
     """
     A class representing a multi-head loss criterion for training neural networks.
     This class allows for applying different loss functions to different subsets of predictions and targets.

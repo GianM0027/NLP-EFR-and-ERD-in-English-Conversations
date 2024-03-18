@@ -41,8 +41,8 @@ from typing import Union, Any, Dict, List, Tuple, Callable, Optional
 import wandb
 import netron
 
-from .wrappers import Criterion, OptimizerWrapper, MultyHeadCriterion
-from .metrics import Metric, MultyHeadMetric, SingleHeadMetric
+from .wrappers import Criterion, OptimizerWrapper, MultiHeadCriterion
+from .metrics import Metric, MultiHeadMetric, SingleHeadMetric
 from .callbacks import EarlyStopper, MultipleEarlyStoppers
 
 import time
@@ -470,8 +470,8 @@ class TrainableModule(DrTorchModule):
 
     def validate(self,
                  data_loader: torch.utils.data.DataLoader,
-                 criterion: Criterion | MultyHeadCriterion,
-                 metrics: Optional[List[Metric | MultyHeadMetric]] = None,
+                 criterion: Criterion | MultiHeadCriterion,
+                 metrics: Optional[List[Metric | MultiHeadMetric]] = None,
                  aggregate_loss_on_dataset: bool = True) -> Dict[str, float] | Tuple[Dict[str, float], torch.Tensor]:
 
         """
@@ -519,7 +519,7 @@ class TrainableModule(DrTorchModule):
         for metric in metrics:
             if isinstance(metric, SingleHeadMetric):
                 results[metric.name] = metric.get_result()
-            elif isinstance(metric, MultyHeadMetric):
+            elif isinstance(metric, MultiHeadMetric):
                 metric_results = metric.get_result()
                 for head_metric, head_metric_result in metric_results.items():
                     results[head_metric] = head_metric_result
@@ -531,10 +531,10 @@ class TrainableModule(DrTorchModule):
     def fit(self,
             train_loader: torch.utils.data.DataLoader,
             val_loader: torch.utils.data.DataLoader,
-            criterion: Criterion | MultyHeadCriterion,
+            criterion: Criterion | MultiHeadCriterion,
             optimizer: OptimizerWrapper,
             num_epochs: int,
-            metrics: Optional[List[Metric | MultyHeadMetric]] = None,
+            metrics: Optional[List[Metric | MultiHeadMetric]] = None,
             early_stopper: Optional[EarlyStopper | MultipleEarlyStoppers] = None,
             aggregate_loss_on_dataset: bool = True,
             verbose: int = 1,
@@ -600,7 +600,7 @@ class TrainableModule(DrTorchModule):
             if isinstance(metric, SingleHeadMetric):
                 train_history[metric.name] = []
                 val_history[metric.name] = []
-            elif isinstance(metric, MultyHeadMetric):
+            elif isinstance(metric, MultiHeadMetric):
                 train_history[metric.name] = []
                 val_history[metric.name] = []
                 for head_metric in metric.metrics_functions.values():
@@ -636,7 +636,7 @@ class TrainableModule(DrTorchModule):
                     for metric in metrics:
                         if isinstance(metric, SingleHeadMetric):
                             metrics_value[metric.name] = metric(outputs, labels)
-                        elif isinstance(metric, MultyHeadMetric):
+                        elif isinstance(metric, MultiHeadMetric):
                             metric_results = metric(outputs, labels)
                             for head_metric_key, head_metric_result in metric_results.items():
                                 metrics_value[head_metric_key] = head_metric_result

@@ -1,7 +1,7 @@
-from typing import Tuple, List, Optional, Dict, Any
+from typing import Tuple, List, Optional, Dict
 
-import os
 from IPython.core.display_functions import display
+import os
 
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
@@ -11,6 +11,68 @@ import numpy as np
 import torch
 
 from transformers import BertModel, BertTokenizer
+
+from DrTorch.metrics import F1_Score
+
+
+class Sentence_F1:
+    def __init__(self, f1_obj: F1_Score, key_to_consider: str):
+        self.f1_obj = f1_obj
+        self.key_to_consider = key_to_consider
+        self.f1_scores_per_dialogue = []
+        self.name = self.f1_obj.name
+
+    def __call__(self, predicted_classes: torch.Tensor,
+                 target_classes: torch.Tensor,
+                 accumulate_statistic: bool = False) -> float:
+
+        f1_scores_per_dialogue = self.update_state(predicted_classes, target_classes)
+
+        if not accumulate_statistic:
+            self.reset_state()
+
+        mean_f1 = sum(f1_scores_per_dialogue) / len(f1_scores_per_dialogue)
+
+        return mean_f1
+
+    def update_state(self,
+                     predicted_classes: torch.Tensor,
+                     target_classes: torch.Tensor) -> np.array:
+        f1_scores_per_dialogue = []
+
+        for pred, target in zip(predicted_classes, target_classes):
+            Single_dialogue_pred = torch.unsqueeze(pred, dim=0)
+            Single_dialogue_target = torch.unsqueeze(target, dim=0)
+            f1_scores_per_dialogue.append(
+                self.f1_obj(predicted_classes=Single_dialogue_pred, target_classes=Single_dialogue_target))
+
+        self.f1_scores_per_dialogue += f1_scores_per_dialogue
+
+        return f1_scores_per_dialogue
+
+    def reset_state(self) -> None:
+        """
+        Reset the internal state of the F1 Score metric.
+
+        :return: None
+
+        """
+
+        self.f1_scores_per_dialogue = []
+
+    def get_result(self) -> float:
+        """
+        Compute and return the final F1 Score result.
+
+        :return: Computed F1 Score.
+
+        """
+
+        mean_f1 = sum(self.f1_scores_per_dialogue) / len(self.f1_scores_per_dialogue)
+
+        return mean_f1
+
+
 
 
 def replace_nan_with_zero(lst: List) -> List[float]:

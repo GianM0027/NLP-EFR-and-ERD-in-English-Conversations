@@ -1,5 +1,6 @@
 from typing import Tuple, List, Optional, Dict
 
+import transformers
 from IPython.core.display_functions import display
 import os
 
@@ -12,11 +13,29 @@ import torch
 
 from transformers import BertModel, BertTokenizer
 
+import DrTorch.metrics
 from DrTorch.metrics import F1_Score
 
 
 class Sentence_F1:
+    """
+       A class to compute the F1 score for sentences/dialogues.
+
+       Attributes:
+       - f1_obj (F1_Score): An instance of the F1_Score class used for computing F1 score.
+       - key_to_consider (str): The key to consider for F1 score computation.
+       - f1_scores_per_dialogue (list): A list to store F1 scores computed for each dialogue.
+       - name (str): Name of the F1 score object.
+    """
     def __init__(self, f1_obj: F1_Score, key_to_consider: str):
+        """
+        Initialize Sentence_F1 class.
+
+        :params  f1_obj: An instance of the F1_Score class.
+        :params  key_to_consider: The key to consider for F1 score computation.
+
+        """
+
         self.f1_obj = f1_obj
         self.key_to_consider = key_to_consider
         self.f1_scores_per_dialogue = []
@@ -25,6 +44,18 @@ class Sentence_F1:
     def __call__(self, predicted_classes: torch.Tensor,
                  target_classes: torch.Tensor,
                  accumulate_statistic: bool = False) -> float:
+
+        """
+        Compute the mean F1 score for predicted and target classes.
+
+
+        :params predicted_classes (torch.Tensor): Predicted classes.
+        :params target_classes (torch.Tensor): Target (true) classes.
+        :params accumulate_statistic (bool): Whether to accumulate statistics or not.
+
+        Returns: Mean F1 score over the dialogues.
+
+        """
 
         f1_scores_per_dialogue = self.update_state(predicted_classes, target_classes)
 
@@ -38,6 +69,17 @@ class Sentence_F1:
     def update_state(self,
                      predicted_classes: torch.Tensor,
                      target_classes: torch.Tensor) -> np.array:
+        """
+        Update the internal state of F1 score metric.
+
+
+        :params  predicted_classes: Predicted classes.
+        :params  target_classes: Target (true) classes.
+
+        Returns: List of F1 scores per dialogue.
+
+        """
+
         f1_scores_per_dialogue = []
 
         for pred, target in zip(predicted_classes, target_classes):
@@ -71,8 +113,6 @@ class Sentence_F1:
         mean_f1 = sum(self.f1_scores_per_dialogue) / len(self.f1_scores_per_dialogue)
 
         return mean_f1
-
-
 
 
 def replace_nan_with_zero(lst: List) -> List[float]:
@@ -155,8 +195,11 @@ def split_dataset(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Data
     return train_df, val_df, test_df
 
 
-def plot_emotion_distribution(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.DataFrame, column_name,
-                              title) -> None:
+def plot_emotion_distribution(train_df: pd.DataFrame,
+                              val_df: pd.DataFrame,
+                              test_df: pd.DataFrame,
+                              column_name: str,
+                              title: str) -> None:
     """
     Plot the distribution of emotions in the three datasets
 
@@ -309,7 +352,7 @@ def display_dialogue(dataframe: pd.DataFrame, utterance_id: str | int) -> None:
     print()
 
 
-def produce_speaker_emotion_distribution(dataframe) -> pd.DataFrame:
+def produce_speaker_emotion_distribution(dataframe: pd.DataFrame) -> pd.DataFrame:
     """
      Produce emotion distribution for each speaker based on the provided dataframe.
 
@@ -406,7 +449,7 @@ def retrieve_bert_initializers(bert_path: os.path) -> Tuple[BertModel, BertToken
     return model, tokenizer
 
 
-def find_max_encoded_utterance(tokenizer: BertTokenizer, data: pd.Series) -> Tuple[int, int]:
+def find_max_encoded_utterance_len(tokenizer: BertTokenizer, data: pd.Series) -> Tuple[int, int]:
     """
     Find the maximum length of encoded utterances in the given data.
 
@@ -423,7 +466,7 @@ def find_max_encoded_utterance(tokenizer: BertTokenizer, data: pd.Series) -> Tup
     return tokenized_batch["input_ids"].shape[1]
 
 
-def pad_utterances(sequences: List[torch.Tensor], pad_token_id):
+def pad_utterances(sequences: List[torch.Tensor], pad_token_id: int):
     """
     Pad a list of sequences with a given pad token ID.
 
@@ -472,11 +515,13 @@ def remove_redundant_cls(input_ids: torch.Tensor, attention_mask: torch.Tensor, 
     return input_ids, attention_mask, token_type_ids
 
 
-def tokenize_data(data: pd.Series, max_tokenized_length: int, tokenizer) -> Dict[str, torch.Tensor]:
+def tokenize_data(data: pd.Series, max_tokenized_length: int, tokenizer: transformers.BartTokenizer) -> Dict[str, torch.Tensor]:
     """
     Tokenize a pandas Series of text data.
 
     :params data: A pandas Series containing text data.
+    :params max_tokenized_length: The maximum lang of the tokenized sentence.
+    :params tokenizer: Bert tokenizer.
 
     :returns: A dictionary containing tokenized input, attention masks, and token type IDs.
 
@@ -537,7 +582,7 @@ def preprocess_labels(labels: pd.DataFrame) -> Dict[str, torch.Tensor]:
     return {'emotions': encoded_emotions_tensor, 'triggers': encoded_triggers_tensor}
 
 
-def create_directories(paths) -> None:
+def create_directories(paths: List[os.path]) -> None:
     """
     Creates al the directories listed in paths (excluding files at the end of it, if present)
 
@@ -550,13 +595,13 @@ def create_directories(paths) -> None:
             os.makedirs(directory, exist_ok=True)
 
 
-def compute_unrolled_f1(emotion_f1,
-                        trigger_f1,
-                        targets_emotions,
-                        predictions_emotions,
-                        targets_triggers,
-                        predictions_triggers,
-                        emotion_to_index):
+def compute_unrolled_f1(emotion_f1: DrTorch.metrics.F1_Score,
+                        trigger_f1: DrTorch.metrics.F1_Score,
+                        targets_emotions: pd.Series,
+                        predictions_emotions: pd.Series,
+                        targets_triggers: pd.Series,
+                        predictions_triggers: pd.Series,
+                        emotion_to_index: dict[str, int]):
     """
     Computes the F1 scores for emotions and triggers across the entire dataset after unrolling the predictions and targets.
 
@@ -585,13 +630,13 @@ def compute_unrolled_f1(emotion_f1,
     return unrolled_emotion_f1, unrolled_trigger_f1
 
 
-def compute_f1_per_dialogues(emotion_f1,
-                             trigger_f1,
-                             targets_emotions,
-                             predictions_emotions,
-                             targets_triggers,
-                             predictions_triggers,
-                             emotion_to_index):
+def compute_f1_per_dialogues(emotion_f1: DrTorch.metrics.F1_Score,
+                             trigger_f1: DrTorch.metrics.F1_Score,
+                             targets_emotions: pd.Series,
+                             predictions_emotions: pd.Series,
+                             targets_triggers: pd.Series,
+                             predictions_triggers: pd.Series,
+                             emotion_to_index: dict[str, int]):
     """
     Computes the F1 scores for emotions and triggers per dialogue in the dataset.
 
@@ -618,5 +663,5 @@ def compute_f1_per_dialogues(emotion_f1,
                         index=list(sequences_emotions_f1.keys()))
 
 
-def reshape_loss_input(x):
+def reshape_loss_input(x: torch.Tensor):
     return x.view(-1, x.shape[-1])

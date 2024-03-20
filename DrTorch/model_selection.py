@@ -263,7 +263,8 @@ def collect_results(
                     val_results[current_head_metric.name] = []
 
         if wandb_params is not None and not any([flag in training_hyperparameters for flag in wandb_flags]):
-            warning_message = '''Warning: Wandb connection started without logging anything. Maybe you want to add some training hyperparameters wandb related:'''
+            warning_message = ('Warning: Wandb connection started without logging anything. '
+                               'Maybe you want to add some training hyperparameters wandb related:')
             print('\n'.join([warning_message] + wandb_flags))
 
         total_hyperparameters = {**training_hyperparameters, **model_hyperparameters}

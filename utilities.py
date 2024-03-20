@@ -590,8 +590,11 @@ def create_directories(paths: List[os.path]) -> None:
     :return: None
     """
     for path in paths:
-        directory = os.path.dirname(path)
-        if directory and not os.path.exists(directory):
+        if os.path.isfile(path):
+            directory = os.path.dirname(path)
+        else:
+            directory = path
+        if not os.path.exists(directory):
             os.makedirs(directory, exist_ok=True)
 
 

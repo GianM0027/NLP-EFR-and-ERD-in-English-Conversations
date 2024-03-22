@@ -39,7 +39,7 @@ class RandomClassifier:
 
             rand_emotions = [self.emotions[np.random.randint(0, self.n_emotions)] for _ in range(len_emotions)]
 
-            rand_triggers = [float(np.random.randint(0, 2)) for _ in range(len_emotions)]
+            rand_triggers = [np.random.randint(0, 2) for _ in range(len_emotions)]
 
             emotion_predictions.append(rand_emotions)
             triggers_predictions.append(rand_triggers)

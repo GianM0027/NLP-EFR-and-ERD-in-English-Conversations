@@ -46,7 +46,7 @@ class MajorityClassifier:
         triggers_values, triggers_counts = np.unique(flatten_triggers, return_counts=True)
 
         self.major_emotion = emotion_values[np.argmax(emotion_counts)]
-        self.major_trigger = triggers_values[np.argmax(triggers_counts)]
+        self.major_trigger = int(triggers_values[np.argmax(triggers_counts)])
 
     def predict(self, test_df: pd.DataFrame) -> (list[list[str]], list[list[int]]):
         """

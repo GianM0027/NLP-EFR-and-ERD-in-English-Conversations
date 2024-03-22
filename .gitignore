@@ -2,7 +2,7 @@
 .idea
 .weights_memory/
 local-bert/
-local-big-bert
+local-big-bert/
 __pycache__
 DrTorch/__pycache__/
 models/__pycache__/git

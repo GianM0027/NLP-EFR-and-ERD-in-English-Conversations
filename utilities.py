@@ -6,6 +6,8 @@ import os
 
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
+from sklearn.metrics import confusion_matrix
+
 
 import pandas as pd
 import numpy as np
@@ -668,3 +670,52 @@ def compute_f1_per_dialogues(emotion_f1: DrTorch.metrics.F1_Score,
 
 def reshape_loss_input(x: torch.Tensor):
     return x.view(-1, x.shape[-1])
+
+
+def plot_confusion_matrix(target_emotions: pd.Series,
+                          pred_emotions: pd.Series,
+                          emotion_to_index_map: dict[str,int],
+                          target_triggers: pd.Series,
+                          pred_triggers: pd.Series,
+                          title: str):
+
+    target_emotion_flattened = [emotion_to_index_map[emotion] for emotion in target_emotions.sum()]
+    pred_emotions_flattened = [emotion_to_index_map[emotion] for emotion in pred_emotions.sum()]
+    target_triggers_flatten = target_triggers.sum()
+    pred_triggers_flatten = pred_triggers.sum()
+
+    emotion_conf_matrix = confusion_matrix(target_emotion_flattened, pred_emotions_flattened)[:7,:7]
+    trigger_conf_matrix = confusion_matrix(target_triggers_flatten, pred_triggers_flatten)[:2,:2]
+
+    fig, axes = plt.subplots(1, 2, figsize=(15, 5))
+
+    emotion_labels = list(emotion_to_index_map.keys())[:-1]
+
+    im1 = axes[0].imshow(emotion_conf_matrix, cmap='Blues', interpolation='nearest')
+    axes[0].set_title('Confusion Matrix - Emotions')
+    axes[0].set_xlabel('Predicted labels')
+    axes[0].set_ylabel('True labels')
+    axes[0].set_xticks(np.arange(len(emotion_labels)))
+    axes[0].set_yticks(np.arange(len(emotion_labels)))
+    axes[0].set_xticklabels(emotion_labels, rotation=45)  # Imposta le etichette sull'asse x con una rotazione di 45 gradi
+    axes[0].set_yticklabels(emotion_labels)  # Imposta le etichette sull'asse y
+    for i in range(len(emotion_to_index_map)-1):
+        for j in range(len(emotion_to_index_map)-1):
+            axes[0].text(j, i, emotion_conf_matrix[i, j], ha='center', va='center', color='black')
+    fig.colorbar(im1, ax=axes[0], fraction=0.046, pad=0.04)
+
+    im2 = axes[1].imshow(trigger_conf_matrix, cmap='Blues', interpolation='nearest')
+    axes[1].set_title('Confusion Matrix - Triggers')
+    axes[1].set_xlabel('Predicted labels')
+    axes[1].set_ylabel('True labels')
+    axes[1].set_xticks(np.arange(2))
+    axes[1].set_yticks(np.arange(2))
+    for i in range(2):
+        for j in range(2):
+            axes[1].text(j, i, trigger_conf_matrix[i, j], ha='center', va='center', color='black')
+    fig.colorbar(im2, ax=axes[1], fraction=0.046, pad=0.04)
+
+    fig.suptitle(title, fontsize=16)
+
+    plt.tight_layout()
+    plt.show()

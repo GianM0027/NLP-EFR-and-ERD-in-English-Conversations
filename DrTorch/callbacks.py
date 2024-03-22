@@ -177,7 +177,7 @@ class EarlyStopper:
         if self.stop_flag:
             end_msg = 'Early stopping activated'
             if self.restore_weights:
-                end_msg += f', best weights reloaded from epoch {self.history_index_to_reload}'
+                end_msg += f', best weights reloaded from epoch {self.history_index_to_reload + 1}'
             print(end_msg)
 
 

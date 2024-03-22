@@ -1,0 +1,5 @@
+metrics,random_cls_scores
+unrolled emotion F1 scores,0.12880001405506464
+unrolled trigger F1 scores,0.43227583091224964
+sequence emotion F1 score,0.07553182310220126
+sequence trigger F1 score,0.40993277041943726

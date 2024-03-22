@@ -5,7 +5,7 @@ local-bert/
 __pycache__
 DrTorch/__pycache__/
 models/__pycache__/git
-results/
+results/weights
 wandb/
 
 *.pyc

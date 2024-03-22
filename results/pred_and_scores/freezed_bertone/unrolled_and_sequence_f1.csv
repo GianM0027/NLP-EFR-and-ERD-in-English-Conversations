@@ -1,0 +1,5 @@
+metrics,freezed_bertone_cls_scores
+unrolled emotion F1 scores,0.6331792510655513
+unrolled trigger F1 scores,0.4462173740089891
+sequence emotion F1 score,0.33923368623096933
+sequence trigger F1 score,0.4285641655166397

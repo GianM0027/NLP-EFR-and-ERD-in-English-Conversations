@@ -1,5 +1,7 @@
 from typing import Tuple, Dict
 
+from transformers import BertModel
+
 from DrTorch.modules import TrainableModule
 
 import torch
@@ -33,10 +35,15 @@ class BertOne(TrainableModule):
               logits = model.forward(inputs)
              ```
 
-       """
+    """
 
-    def __init__(self, bert_model, cls_input_size, hidden_dim, n_emotions, n_triggers, freeze_bert_weights=False,
-                 name='FreezedBertOne'):
+    def __init__(self, bert_model:BertModel,
+                 cls_input_size: int,
+                 hidden_dim: int,
+                 n_emotions: int,
+                 n_triggers: int,
+                 freeze_bert_weights: bool = False,
+                 name: str = 'FreezedBertOne'):
         """
         Initializes the BertFreezed module.
 

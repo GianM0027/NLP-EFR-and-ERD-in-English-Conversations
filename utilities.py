@@ -1,4 +1,4 @@
-from typing import Tuple, List, Optional, Dict
+from typing import Tuple, List, Optional, Dict, Union
 
 import transformers
 from IPython.core.display_functions import display
@@ -13,7 +13,7 @@ import pandas as pd
 import numpy as np
 import torch
 
-from transformers import BertModel, BertTokenizer
+from transformers import BertModel, BertTokenizer, LongformerModel, LongformerTokenizer
 
 import DrTorch.metrics
 from DrTorch.metrics import F1_Score
@@ -410,20 +410,25 @@ def create_classes_weights(list_of_label_index: list[int], list_of_index_to_excl
     return class_weights
 
 
-def download_bert_initializers(bert_path: os.path) -> Tuple[BertModel, BertTokenizer]:
+def download_bert_initializers(bert_constructor: type[BertModel | LongformerModel],
+                               bert_tokenizer_constructor: type[BertTokenizer | LongformerTokenizer],
+                               bert_path: os.path,
+                               version:str = 'bert-base-uncased') -> Tuple[BertModel, BertTokenizer]:
     """
     Downloads the BERT model and tokenizer of 'local-bert' and saves them to a specified directory.
     This function checks if the directory exists, creates it if it does not, downloads the model and tokenizer,
     and saves them in the specified directory for future utilization.
 
     :param bert_path: The directory path where the BERT model and tokenizer should be saved.
-
+    :param version: The bert Version.
+    :param bert_constructor: Constructor for the Bert model.
+    :param bert_tokenizer_constructor: Constructor for the Bert Tokenizer.
     :return: a tuple containing the downloaded BertModel and BertTokenizer instances.
 
     """
 
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    model = BertModel.from_pretrained('bert-base-uncased')
+    model = bert_constructor.from_pretrained(version)
+    tokenizer = bert_tokenizer_constructor.from_pretrained(version)
 
     tokenizer.save_pretrained(bert_path)
     model.save_pretrained(bert_path)
@@ -433,20 +438,24 @@ def download_bert_initializers(bert_path: os.path) -> Tuple[BertModel, BertToken
     return model, tokenizer
 
 
-def retrieve_bert_initializers(bert_path: os.path) -> Tuple[BertModel, BertTokenizer]:
+def retrieve_bert_initializers(bert_constructor: type[BertModel | LongformerModel],
+                               bert_tokenizer_constructor: type[BertTokenizer | LongformerTokenizer],
+                               bert_path: os.path) -> Tuple[BertModel, BertTokenizer] | Tuple[LongformerModel, LongformerTokenizer]:
     """
     Retrieves the BERT model and tokenizer from a specified directory.
     This function loads the BERT model and tokenizer that were previously saved in a specified directory,
     and returns them for future use.
 
+    :param bert_constructor: Constructor for the Bert model.
+    :param bert_tokenizer_constructor: Constructor for the Bert Tokenizer.
     :param bert_path: The directory path where the BERT model and tokenizer should be retrieved.
 
     :return: a tuple containing the loaded BertModel and BertTokenizer instances.
 
     """
 
-    tokenizer = BertTokenizer.from_pretrained(bert_path)
-    model = BertModel.from_pretrained(bert_path)
+    model = bert_constructor.from_pretrained(bert_path)
+    tokenizer = bert_tokenizer_constructor.from_pretrained(bert_path)
 
     return model, tokenizer
 

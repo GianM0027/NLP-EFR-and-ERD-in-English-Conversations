@@ -477,6 +477,37 @@ def find_max_encoded_utterance_len(tokenizer: BertTokenizer, data: pd.Series) ->
     return tokenized_batch["input_ids"].shape[1]
 
 
+def plot_distribution_of_dialogue_lengths(df: pd.DataFrame, tokenizer: BertTokenizer, figsize, vert=False) -> None:
+    """
+    Plot the distribution (boxplot) of the utterance length (tokenized)
+
+    :param df: dataframe to plot
+    :param tokenizer: bert tokenizer to use
+    :param vert: flag to set the plot vertical
+
+    :returns: None
+    """
+    tokenized_utterances = tokenizer.batch_encode_plus(df["utterances"].sum(), padding=False)
+
+    lengths = [len(utterance) for utterance in tokenized_utterances["input_ids"]]
+
+    plt.figure(figsize=figsize)
+    plt.boxplot(lengths, vert=vert)
+    max_length = max(lengths)
+
+    if vert:
+        plt.yticks(np.arange(0, max_length + 1, 5))
+        plt.xticks([])
+    else:
+        plt.xticks(np.arange(0, max_length + 1, 5))
+        plt.yticks([])
+    plt.xlabel('Length of Dialogues')
+    plt.title('Distribution of Dialogue Lengths')
+    plt.grid(True)
+
+    plt.show()
+
+
 def pad_utterances(sequences: List[torch.Tensor], pad_token_id: int):
     """
     Pad a list of sequences with a given pad token ID.
@@ -593,7 +624,7 @@ def preprocess_labels(labels: pd.DataFrame) -> Dict[str, torch.Tensor]:
     return {'emotions': encoded_emotions_tensor, 'triggers': encoded_triggers_tensor}
 
 
-def create_directories(paths: List[os.path]) -> None:
+def create_directories(paths: List[os.PathLike]) -> None:
     """
     Creates al the directories listed in paths (excluding files at the end of it, if present)
 
@@ -683,7 +714,7 @@ def reshape_loss_input(x: torch.Tensor):
 
 def plot_confusion_matrix(target_emotions: pd.Series,
                           pred_emotions: pd.Series,
-                          emotion_to_index_map: dict[str,int],
+                          emotion_to_index_map: dict[str, int],
                           target_triggers: pd.Series,
                           pred_triggers: pd.Series,
                           title: str):
@@ -697,6 +728,7 @@ def plot_confusion_matrix(target_emotions: pd.Series,
     trigger_conf_matrix = confusion_matrix(target_triggers_flatten, pred_triggers_flatten)[:2,:2]
 
     fig, axes = plt.subplots(1, 2, figsize=(15, 5))
+    fig.suptitle(title, fontsize=16)
 
     emotion_labels = list(emotion_to_index_map.keys())[:-1]
 
@@ -706,8 +738,8 @@ def plot_confusion_matrix(target_emotions: pd.Series,
     axes[0].set_ylabel('True labels')
     axes[0].set_xticks(np.arange(len(emotion_labels)))
     axes[0].set_yticks(np.arange(len(emotion_labels)))
-    axes[0].set_xticklabels(emotion_labels, rotation=45)  # Imposta le etichette sull'asse x con una rotazione di 45 gradi
-    axes[0].set_yticklabels(emotion_labels)  # Imposta le etichette sull'asse y
+    axes[0].set_xticklabels(emotion_labels, rotation=45)
+    axes[0].set_yticklabels(emotion_labels)
     for i in range(len(emotion_to_index_map)-1):
         for j in range(len(emotion_to_index_map)-1):
             axes[0].text(j, i, emotion_conf_matrix[i, j], ha='center', va='center', color='black')
@@ -723,8 +755,6 @@ def plot_confusion_matrix(target_emotions: pd.Series,
         for j in range(2):
             axes[1].text(j, i, trigger_conf_matrix[i, j], ha='center', va='center', color='black')
     fig.colorbar(im2, ax=axes[1], fraction=0.046, pad=0.04)
-
-    fig.suptitle(title, fontsize=16)
 
     plt.tight_layout()
     plt.show()

@@ -477,7 +477,7 @@ def find_max_encoded_utterance_len(tokenizer: BertTokenizer, data: pd.Series) ->
     return tokenized_batch["input_ids"].shape[1]
 
 
-def plot_distribution_of_dialogue_lengths(df: pd.DataFrame, tokenizer: BertTokenizer, figsize, vert=False) -> None:
+def plot_distribution_of_dialogue_lengths(df: pd.DataFrame, tokenizer: BertTokenizer, figsize, vert=False, title = 'Distribution of Dialogue Lengths') -> None:
     """
     Plot the distribution (boxplot) of the utterance length (tokenized)
 
@@ -488,7 +488,6 @@ def plot_distribution_of_dialogue_lengths(df: pd.DataFrame, tokenizer: BertToken
     :returns: None
     """
     tokenized_utterances = tokenizer.batch_encode_plus(df["utterances"].sum(), padding=False)
-
     lengths = [len(utterance) for utterance in tokenized_utterances["input_ids"]]
 
     plt.figure(figsize=figsize)
@@ -502,9 +501,71 @@ def plot_distribution_of_dialogue_lengths(df: pd.DataFrame, tokenizer: BertToken
         plt.xticks(np.arange(0, max_length + 1, 5))
         plt.yticks([])
     plt.xlabel('Length of Dialogues')
-    plt.title('Distribution of Dialogue Lengths')
+    plt.title(title)
     plt.grid(True)
 
+    plt.show()
+
+def remove_longest_utterances(data: pd.DataFrame, tokenizer: BertTokenizer, threshold: int = 65) -> pd.DataFrame:
+    """
+    removes all the dialogues which contain an utterance above a certain threshold
+
+    :param data: dataframe from which data is retrieved
+    :param tokenizer: tokenizer used to compute the tokenized sentences
+    :param threshold: value after which a dialogue is excluded
+
+    :return: a copy of the original data without the long utterances
+    """
+    indexes_to_drop = [
+        idx
+        for idx, dialogue in data["utterances"].items()
+        if any(
+            len(tokenizer.encode_plus(utterance, padding=False)['input_ids']) > threshold
+            for utterance in dialogue
+        )
+    ]
+    print(f"{len(indexes_to_drop)} rows dropped\n")
+    return data.drop(indexes_to_drop)
+
+
+def plot_number_of_trigger_frequency(data: list) -> None:
+    """
+    Plot the distribution of the number of triggers per dialogue
+
+    :param data: the list containig the number of trigger per dialogue
+
+    :return: None
+
+    """
+
+    plt.hist(data, bins=range(min(data), max(data) + 2), edgecolor='black')
+    plt.xlabel('Value')
+    plt.ylabel('Frequency')
+    plt.xticks([0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5], range(0, 10))
+    plt.title('N of Triggers per Dialogue')
+    plt.grid(False)
+    plt.show()
+
+
+def plot_trigger_position_reversed(data: list) -> None:
+    """
+    Plot the distribution of the number of triggers per dialogue
+
+    :param data: the list containig the position of each trigger in the dataset
+    expressed by the distance to the end of the dialoge in utternces
+
+    :return: None
+
+    """
+
+    plt.hist(data, bins=range(min(data), 12),
+             edgecolor='black')  # 12 is set to display only the relevant part of the histogram
+    plt.xlabel('Position')
+    plt.ylabel('Frequency')
+    plt.xticks([0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5],
+               ['i', 'i -1', 'i -2', 'i -3', 'i -4', 'i -5', 'i -6', 'i -7', 'i -8', 'i -9', 'i -10'])
+    plt.title('Position of Triggers')
+    plt.grid(False)
     plt.show()
 
 
@@ -624,6 +685,66 @@ def preprocess_labels(labels: pd.DataFrame) -> Dict[str, torch.Tensor]:
     return {'emotions': encoded_emotions_tensor, 'triggers': encoded_triggers_tensor}
 
 
+def tokenize_data_Bertone(data: pd.Series, max_tokenized_length: int, tokenizer: transformers.BartTokenizer) -> Dict[
+    str, torch.Tensor]:
+    """
+    Tokenize a pandas Series of text data.
+
+    :params data: A pandas Series containing text data.
+    :params max_tokenized_length: The maximum lang of the tokenized sentence.
+    :params tokenizer: Bert tokenizer.
+
+    :returns: A dictionary containing tokenized input, attention masks, and token type IDs.
+
+    """
+
+    input_ids_list = []
+    attention_masks_list = []
+
+    for text_list in data:
+        tokenized_utterances = tokenizer.batch_encode_plus(batch_text_or_text_pairs=text_list,
+                                                           padding="max_length",
+                                                           max_length=max_tokenized_length,
+                                                           return_tensors='pt')
+
+        input_ids, attention_mask = remove_redundant_cls_Bertone(tokenized_utterances['input_ids'],
+                                                                 tokenized_utterances['attention_mask'])
+
+        input_ids_list.append(input_ids)
+        attention_masks_list.append(attention_mask)
+
+    padded_input_ids = pad_utterances(input_ids_list, tokenizer.pad_token_id)
+    padded_attention_masks = pad_utterances(attention_masks_list, 0)
+
+    output = {'input_ids': padded_input_ids,
+              'attention_mask': padded_attention_masks}
+
+    return output
+
+
+def remove_redundant_cls_Bertone(input_ids: torch.Tensor, attention_mask: torch.Tensor):
+    """
+    Removes the redundant [CLS] token from the input tensors.
+
+
+    :params input_ids (torch.Tensor): Tensor containing the input token IDs.
+    :params attention_mask (torch.Tensor): Tensor containing the attention mask.
+    :params token_type_ids (torch.Tensor): Tensor containing the token type IDs.
+
+    :returns:
+        tuple: A tuple containing the modified input tensors:
+            - input_ids (torch.Tensor): Tensor containing the input token IDs with the first [CLS] token removed.
+            - attention_mask (torch.Tensor): Tensor containing the attention mask with the first [CLS] token removed.
+            - token_type_ids (torch.Tensor): Tensor containing the token type IDs with the first [CLS] token removed.
+
+    """
+
+    pad = torch.zeros(input_ids.shape[0] - 1)
+
+    input_ids[1:, 0] = pad
+    attention_mask[1:, 0] = pad
+
+    return input_ids, attention_mask
 def create_directories(paths: List[os.PathLike]) -> None:
     """
     Creates al the directories listed in paths (excluding files at the end of it, if present)

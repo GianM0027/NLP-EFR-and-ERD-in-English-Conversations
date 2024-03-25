@@ -227,8 +227,7 @@ def plot_emotion_distribution(train_df: pd.DataFrame,
         values, counts = np.unique(flatten_values, return_counts=True)
         plt.bar(values, counts)
         plt.title(titles[i])
-        plt.grid()
-        plt.xticks(rotation=45)  # Rotate labels to avoid overlap
+        plt.xticks([0, 1])  # Rotate labels to avoid overlap
         plt.ylabel('Counts')
 
     plt.tight_layout()
@@ -265,7 +264,6 @@ def plot_triggers_per_emotion(train_df: pd.DataFrame, val_df: pd.DataFrame, test
 
         plt.bar(list(count_dict.keys()), list(count_dict.values()))
         plt.title(titles[i])
-        plt.grid()
         plt.xticks(rotation=45)  # Rotate labels to avoid overlap
         plt.ylabel('Counts')
 
@@ -831,6 +829,46 @@ def compute_f1_per_dialogues(emotion_f1: DrTorch.metrics.F1_Score,
 
 def reshape_loss_input(x: torch.Tensor):
     return x.view(-1, x.shape[-1])
+
+
+def plot_trigger_frequency_and_position_reversed(df: pd.DataFrame) -> None:
+    """
+    Plot the frequency and reversed position of triggers
+
+    :param df: DataFrame containing triggers data
+
+    :return: None
+    """
+    plt.figure(figsize=(18, 6))
+    plt.suptitle("Frequency and Reversed Position of Triggers")
+
+    triggers_f = []
+    triggers_pos = []
+
+    for tr in df:
+        triggers_f.append(int(sum(tr)))
+        for i in range(len(tr)):
+            if tr[i] == 1:
+                triggers_pos.append(len(tr) - i - 1)
+
+    plt.subplot(1, 2, 1)
+    plt.hist(triggers_f, bins=range(min(triggers_f), max(triggers_f) + 2), edgecolor='black')
+    plt.xlabel('Number of Triggers')
+    plt.ylabel('Frequency')
+    plt.xticks([0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5], range(0, 10))
+    plt.title('Trigger Frequency')
+
+    plt.subplot(1, 2, 2)
+    plt.hist(triggers_pos, bins=range(min(triggers_pos), 12), edgecolor='black')
+    plt.xlabel('Position (Reversed)')
+    plt.ylabel('Frequency')
+    plt.xticks([0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5],
+               ['i', 'i -1', 'i -2', 'i -3', 'i -4', 'i -5', 'i -6', 'i -7', 'i -8', 'i -9', 'i -10'])
+    plt.title('Trigger Position (Reversed)')
+
+    plt.tight_layout()
+    plt.show()
+
 
 
 def plot_confusion_matrix(target_emotions: pd.Series,

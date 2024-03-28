@@ -227,7 +227,6 @@ def plot_emotion_distribution(train_df: pd.DataFrame,
         values, counts = np.unique(flatten_values, return_counts=True)
         plt.bar(values, counts)
         plt.title(titles[i])
-        plt.xticks([0, 1])  # Rotate labels to avoid overlap
         plt.ylabel('Counts')
 
     plt.tight_layout()
@@ -264,7 +263,7 @@ def plot_triggers_per_emotion(train_df: pd.DataFrame, val_df: pd.DataFrame, test
 
         plt.bar(list(count_dict.keys()), list(count_dict.values()))
         plt.title(titles[i])
-        plt.xticks(rotation=45)  # Rotate labels to avoid overlap
+        plt.xticks(rotation=45)
         plt.ylabel('Counts')
 
     plt.tight_layout()
@@ -326,7 +325,7 @@ def plot_all_distributions(df): # TODO CANCELLA LA FUNZIONE QUANDO ABBIAMO FINIT
 
 def display_dialogue(dataframe: pd.DataFrame, utterance_id: str | int) -> None:
     """
-    Display the data relate to a specific utterance id
+    Display the data related to a specific utterance id
 
     :param dataframe: A pandas dataframe that contain the data
     :param utterance_id: Utterance id related to the speach that you want to show
@@ -588,6 +587,66 @@ def pad_utterances(sequences: List[torch.Tensor], pad_token_id: int):
             padded_seq = seq
         padded_sequences.append(padded_seq)
     return torch.stack(padded_sequences)
+
+
+def tokenize_data_big_bertOne(data: pd.Series, max_tokenized_length: int, tokenizer: transformers.BartTokenizer) -> Dict[str, torch.Tensor]:
+    """
+    Tokenize a pandas Series of text data.
+
+    :params data: A pandas Series containing text data.
+    :params max_tokenized_length: The maximum lang of the tokenized sentence.
+    :params tokenizer: Bert tokenizer.
+
+    :returns: A dictionary containing tokenized input, attention masks, and token type IDs.
+
+    """
+
+    input_ids_list = []
+    attention_masks_list = []
+
+    for text_list in data:
+        tokenized_utterances = tokenizer.batch_encode_plus(batch_text_or_text_pairs=text_list,
+                                                           padding="max_length",
+                                                           max_length=max_tokenized_length,
+                                                           return_tensors='pt')
+
+        input_ids, attention_mask = remove_redundant_cls_big_bertOne(tokenized_utterances['input_ids'],
+                                                          tokenized_utterances['attention_mask'])
+
+        input_ids_list.append(input_ids)
+        attention_masks_list.append(attention_mask)
+
+    padded_input_ids = pad_utterances(input_ids_list, tokenizer.pad_token_id)
+    padded_attention_masks = pad_utterances(attention_masks_list, 0)
+
+    output = {'input_ids': padded_input_ids,
+              'attention_mask': padded_attention_masks}
+
+    return output
+
+def remove_redundant_cls_big_bertOne(input_ids: torch.Tensor, attention_mask: torch.Tensor):
+    """
+    Removes the redundant [CLS] token from the input tensors.
+
+
+    :params input_ids (torch.Tensor): Tensor containing the input token IDs.
+    :params attention_mask (torch.Tensor): Tensor containing the attention mask.
+    :params token_type_ids (torch.Tensor): Tensor containing the token type IDs.
+
+    :returns:
+        tuple: A tuple containing the modified input tensors:
+            - input_ids (torch.Tensor): Tensor containing the input token IDs with the first [CLS] token removed.
+            - attention_mask (torch.Tensor): Tensor containing the attention mask with the first [CLS] token removed.
+            - token_type_ids (torch.Tensor): Tensor containing the token type IDs with the first [CLS] token removed.
+
+    """
+
+    pad = torch.zeros(input_ids.shape[0] - 1)
+
+    input_ids[1:, 0] = pad
+    attention_mask[1:, 0] = pad
+
+    return input_ids, attention_mask
 
 
 def remove_redundant_cls(input_ids: torch.Tensor, attention_mask: torch.Tensor, token_type_ids: torch.Tensor):

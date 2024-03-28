@@ -323,12 +323,13 @@ def plot_all_distributions(df): # TODO CANCELLA LA FUNZIONE QUANDO ABBIAMO FINIT
     plt.show()
 
 
-def display_dialogue(dataframe: pd.DataFrame, utterance_id: str | int) -> None:
+def display_dialogue(dataframe: pd.DataFrame, utterance_id: str | int, verbose = True) -> None:
     """
     Display the data related to a specific utterance id
 
     :param dataframe: A pandas dataframe that contain the data
     :param utterance_id: Utterance id related to the speach that you want to show
+    :param verbose: flag to print the number of utterance
 
     :return: None
 
@@ -343,10 +344,11 @@ def display_dialogue(dataframe: pd.DataFrame, utterance_id: str | int) -> None:
 
     new_df = pd.DataFrame(table_data).transpose()
     new_df.columns = dataframe.columns
-    if type(utterance_id) is str:
-        print(utterance_id.replace('_', ' ').capitalize())
-    else:
-        print('Utterance_' + str(utterance_id))
+    if verbose:
+        if type(utterance_id) is str:
+            print(utterance_id.replace('_', ' ').capitalize())
+        else:
+            print('Utterance_' + str(utterance_id))
     display(new_df)
     print()
 

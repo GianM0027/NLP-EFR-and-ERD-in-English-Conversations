@@ -913,19 +913,20 @@ def plot_trigger_frequency_and_position_reversed(df: pd.DataFrame) -> None:
                 triggers_pos.append(len(tr) - i - 1)
 
     plt.subplot(1, 2, 1)
-    plt.hist(triggers_f, bins=range(min(triggers_f), max(triggers_f) + 2), edgecolor='black')
+    trigger_freq_count = pd.Series(triggers_f).value_counts().sort_index()
+    plt.bar(trigger_freq_count.index, trigger_freq_count.values)
     plt.xlabel('Number of Triggers')
     plt.ylabel('Frequency')
-    plt.xticks([0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5], range(0, 10))
     plt.title('Trigger Frequency')
+    plt.xticks(range(0, max(triggers_f) + 1))
 
     plt.subplot(1, 2, 2)
-    plt.hist(triggers_pos, bins=range(min(triggers_pos), 12), edgecolor='black')
+    trigger_pos_count = pd.Series(triggers_pos).value_counts().sort_index()
+    plt.bar(trigger_pos_count.index, trigger_pos_count.values)
     plt.xlabel('Position (Reversed)')
     plt.ylabel('Frequency')
-    plt.xticks([0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5],
-               ['i', 'i -1', 'i -2', 'i -3', 'i -4', 'i -5', 'i -6', 'i -7', 'i -8', 'i -9', 'i -10'])
     plt.title('Trigger Position (Reversed)')
+    plt.xticks(range(0, 11), ['i', 'i -1', 'i -2', 'i -3', 'i -4', 'i -5', 'i -6', 'i -7', 'i -8', 'i -9', 'i -10'])
 
     plt.tight_layout()
     plt.show()

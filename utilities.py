@@ -878,10 +878,11 @@ def compute_f1_per_dialogues(emotion_f1: DrTorch.metrics.F1_Score,
     sequences_triggers_f1 = {}
     for dialog_id in targets_emotions.index:
         sequences_emotions_f1[dialog_id] = emotion_f1(predicted_classes=torch.tensor([emotion_to_index[e] for e in predictions_emotions[dialog_id]], dtype=torch.int),
-                                                      target_classes=torch.tensor([emotion_to_index[e] for e in targets_emotions[dialog_id]], dtype=torch.int))
+                                                      target_classes=torch.tensor([emotion_to_index[e] for e in targets_emotions[dialog_id]], dtype=torch.int)).mean()
 
         sequences_triggers_f1[dialog_id] = trigger_f1(predicted_classes=torch.tensor([predictions_triggers[dialog_id]], dtype=torch.int),
-                                                      target_classes=torch.tensor([targets_triggers[dialog_id]], dtype=torch.int))
+                                                      target_classes=torch.tensor([targets_triggers[dialog_id]], dtype=torch.int)).mean()
+
 
     return pd.DataFrame(data={'emotion_f1': list(sequences_emotions_f1.values()),
                               'trigger_f1': list(sequences_triggers_f1.values())},

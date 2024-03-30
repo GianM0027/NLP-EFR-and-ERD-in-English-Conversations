@@ -431,8 +431,7 @@ class F1_Score(SingleHeadMetric):
         self.mode = mode
         self.pos_label = pos_label
         self.classes_to_exclude = classes_to_exclude if classes_to_exclude else []
-        self.classes_to_consider = np.arange(self.num_classes)[
-            ~np.isin(np.arange(self.num_classes), self.classes_to_exclude)]
+        self.classes_to_consider = np.arange(self.num_classes)[~np.isin(np.arange(self.num_classes), self.classes_to_exclude)]
         self.tps = np.zeros((self.num_classes,))
         self.fps = np.zeros((self.num_classes,))
         self.fns = np.zeros((self.num_classes,))
@@ -465,7 +464,13 @@ class F1_Score(SingleHeadMetric):
         elif self.mode == 'binary':
             result = f1s[self.pos_label]
         elif self.mode == 'macro':
-            result = np.mean(f1s[self.classes_to_consider])
+            # selects all the classes that are NOT present in both predicted_classes and target_classes
+            classes_to_exclude = np.setdiff1d(np.arange(self.num_classes),
+                                              np.union1d(predicted_classes, target_classes))
+
+            classes_to_consider_not_exclude = np.setdiff1d(self.classes_to_consider, classes_to_exclude)
+
+            result = f1s[classes_to_consider_not_exclude]
         elif self.mode == 'micro':
             result = 2 * np.sum(tps[self.classes_to_consider]) / np.sum(denominators[self.classes_to_consider])
         else:

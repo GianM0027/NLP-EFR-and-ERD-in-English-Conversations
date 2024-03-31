@@ -452,6 +452,10 @@ class F1_Score(SingleHeadMetric):
         """
 
         tps, fps, fns = self.update_state(predicted_classes, target_classes)
+
+        # Classes that are present in both predicted_classes and target_classes
+        classes_in_common = np.array(torch.unique(torch.cat((predicted_classes, target_classes))).to(int).cpu())
+
         if not accumulate_statistic:
             self.reset_state()
 
@@ -464,13 +468,8 @@ class F1_Score(SingleHeadMetric):
         elif self.mode == 'binary':
             result = f1s[self.pos_label]
         elif self.mode == 'macro':
-            # selects all the classes that are NOT present in both predicted_classes and target_classes
-            classes_to_exclude = np.setdiff1d(np.arange(self.num_classes),
-                                              np.union1d(predicted_classes, target_classes))
-
-            classes_to_consider_not_exclude = np.setdiff1d(self.classes_to_consider, classes_to_exclude)
-
-            result = f1s[classes_to_consider_not_exclude]
+            # compute the f1 considering only the classe that are both in classes_in_common and self.classes_to_consider
+            result = np.mean(f1s[np.intersect1d(classes_in_common, self.classes_to_consider)])
         elif self.mode == 'micro':
             result = 2 * np.sum(tps[self.classes_to_consider]) / np.sum(denominators[self.classes_to_consider])
         else:

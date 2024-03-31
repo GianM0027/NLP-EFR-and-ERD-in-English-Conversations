@@ -608,7 +608,7 @@ class TrainableModule(DrTorchModule):
                     val_history[head_metric.name] = []
             else:
                 raise TypeError('Inconsistent type for metric parameter. '
-                                'Only Metric or MultiGHeadMetric object allowed.')
+                                'Only SingleHeadMetric or MultiHeadMetric object allowed.')
 
         iterations_per_epoch = len(train_loader)
 

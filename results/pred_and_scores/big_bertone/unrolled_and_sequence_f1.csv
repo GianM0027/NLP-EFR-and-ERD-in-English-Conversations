@@ -1,5 +1,5 @@
 metrics,big_bertone_scores
-unrolled emotion F1 scores,0.8744507951488005
-unrolled trigger F1 scores,0.5499516851926197
-sequence emotion F1 score,0.8144363655405301
-sequence trigger F1 score,0.5299806709947703
+unrolled emotion F1 scores,0.8755037921456653
+unrolled trigger F1 scores,0.5233467755249704
+sequence emotion F1 score,0.8179877226725211
+sequence trigger F1 score,0.5143692806871765

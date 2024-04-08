@@ -932,63 +932,6 @@ def plot_trigger_frequency_and_position_reversed(df: pd.DataFrame) -> None:
     plt.tight_layout()
     plt.show()
 
-    def plot_trigger_frequency_and_position_reversed_comparison(df: pd.DataFrame, pred_df: pd.DataFrame) -> None:
-        """
-        Plot the frequency and reversed position of triggers
-
-        :param df: DataFrame containing triggers data
-        :param pred_df: DataFrame containing predicted triggers data
-
-        :return: None
-        """
-        plt.figure(figsize=(18, 6))
-        plt.suptitle("Frequency and Reversed Position of Triggers")
-
-        triggers_f = []
-        triggers_pos = []
-
-        pred_trigger_f = []
-        pred_trigger_pos = []
-
-        for tr in df:
-            triggers_f.append(int(sum(tr)))
-            for i in range(len(tr)):
-                if tr[i] == 1:
-                    triggers_pos.append(len(tr) - i - 1)
-
-        for tr in pred_df:
-            pred_trigger_f.append(int(sum(tr)))
-            for i in range(len(tr)):
-                if tr[i] == 1:
-                    pred_trigger_pos.append(len(tr) - i - 1)
-
-        plt.subplot(1, 2, 1)
-        trigger_freq_count = pd.Series(triggers_f).value_counts().sort_index()
-        pred_trigger_freq_count = pd.Series(pred_trigger_f).value_counts().sort_index()
-        plt.bar(trigger_freq_count.index, trigger_freq_count.values, label='Real Triggers')
-        plt.bar(pred_trigger_freq_count.index, pred_trigger_freq_count.values, bottom=trigger_freq_count.values,
-                label='Predicted Triggers')
-        plt.xlabel('Number of Triggers')
-        plt.ylabel('Frequency')
-        plt.title('Trigger Frequency')
-        plt.xticks(range(0, max(triggers_f) + 1))
-        plt.legend(['Real Triggers', 'Predicted Triggers'])
-
-        plt.subplot(1, 2, 2)
-        trigger_pos_count = pd.Series(triggers_pos).value_counts().sort_index()
-        pred_trigger_pos_count = pd.Series(pred_trigger_pos).value_counts().sort_index()
-        plt.bar(trigger_pos_count.index, trigger_pos_count.values)
-        plt.bar(pred_trigger_pos_count.index, pred_trigger_pos_count.values, bottom=trigger_pos_count.values,
-                label='Predicted Triggers')
-        plt.xlabel('Position (Reversed)')
-        plt.ylabel('Frequency')
-        plt.title('Trigger Position (Reversed)')
-        plt.xticks(range(0, 11), ['i', 'i -1', 'i -2', 'i -3', 'i -4', 'i -5', 'i -6', 'i -7', 'i -8', 'i -9', 'i -10'])
-        plt.legend(['Real Triggers', 'Predicted Triggers'])
-
-        plt.tight_layout()
-        plt.show()
-
 
 def plot_trigger_frequency_and_position_reversed_comparison(df: pd.DataFrame, pred_df: pd.DataFrame) -> None:
     """
@@ -1020,9 +963,18 @@ def plot_trigger_frequency_and_position_reversed_comparison(df: pd.DataFrame, pr
             if tr[i] == 1:
                 pred_trigger_pos.append(len(tr) - i - 1)
 
+
     plt.subplot(1, 2, 1)
     trigger_freq_count = pd.Series(triggers_f).value_counts().sort_index()
     pred_trigger_freq_count = pd.Series(pred_trigger_f).value_counts().sort_index()
+
+    if len(trigger_freq_count) < len(pred_trigger_freq_count):
+        missing_values = [0] * (len(pred_trigger_freq_count) - len(trigger_freq_count))
+        trigger_freq_count = pd.Series(trigger_freq_count.values.tolist() + missing_values)
+    elif len(trigger_freq_count) > len(pred_trigger_freq_count):
+        missing_values = [0] * (len(trigger_freq_count) - len(pred_trigger_freq_count))
+        pred_trigger_freq_count = pd.Series(pred_trigger_freq_count.values.tolist() + missing_values)
+
     plt.bar(trigger_freq_count.index, trigger_freq_count.values, label='Real Triggers')
     plt.bar(pred_trigger_freq_count.index, pred_trigger_freq_count.values, bottom=trigger_freq_count.values,
             label='Predicted Triggers')
@@ -1035,6 +987,14 @@ def plot_trigger_frequency_and_position_reversed_comparison(df: pd.DataFrame, pr
     plt.subplot(1, 2, 2)
     trigger_pos_count = pd.Series(triggers_pos).value_counts().sort_index()
     pred_trigger_pos_count = pd.Series(pred_trigger_pos).value_counts().sort_index()
+
+    if len(trigger_pos_count) < len(pred_trigger_pos_count):
+        missing_values = [0] * (len(pred_trigger_pos_count) - len(trigger_pos_count))
+        trigger_pos_count = pd.Series(trigger_pos_count.values.tolist() + missing_values)
+    elif len(trigger_pos_count) > len(pred_trigger_pos_count):
+        missing_values = [0] * (len(trigger_pos_count) - len(pred_trigger_pos_count))
+        pred_trigger_pos_count = pd.Series(pred_trigger_pos_count.values.tolist() + missing_values)
+
     plt.bar(trigger_pos_count.index, trigger_pos_count.values)
     plt.bar(pred_trigger_pos_count.index, pred_trigger_pos_count.values, bottom=trigger_pos_count.values,
             label='Predicted Triggers')

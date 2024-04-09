@@ -902,7 +902,7 @@ def plot_trigger_frequency_and_position_reversed(df: pd.DataFrame) -> None:
     :return: None
     """
     plt.figure(figsize=(18, 6))
-    plt.suptitle("Frequency and Reversed Position of Triggers")
+    plt.suptitle("Occurrence and Reversed Position of Triggers within Dialogues")
 
     triggers_f = []
     triggers_pos = []
@@ -918,7 +918,7 @@ def plot_trigger_frequency_and_position_reversed(df: pd.DataFrame) -> None:
     plt.bar(trigger_freq_count.index, trigger_freq_count.values)
     plt.xlabel('Number of Triggers')
     plt.ylabel('Frequency')
-    plt.title('Trigger Frequency')
+    plt.title('Number of Triggers per Dialogue')
     plt.xticks(range(0, max(triggers_f) + 1))
 
     plt.subplot(1, 2, 2)
@@ -926,14 +926,14 @@ def plot_trigger_frequency_and_position_reversed(df: pd.DataFrame) -> None:
     plt.bar(trigger_pos_count.index, trigger_pos_count.values)
     plt.xlabel('Position (Reversed)')
     plt.ylabel('Frequency')
-    plt.title('Trigger Position (Reversed)')
-    plt.xticks(range(0, 11), ['i', 'i -1', 'i -2', 'i -3', 'i -4', 'i -5', 'i -6', 'i -7', 'i -8', 'i -9', 'i -10'])
+    plt.title('Trigger Position Within Dialogue')
+    plt.xticks(range(len(trigger_pos_count)), ['i']+[f"i-{idx+1}" for idx in range(len(trigger_pos_count)-1)])
 
     plt.tight_layout()
     plt.show()
 
 
-def plot_trigger_frequency_and_position_reversed_comparison(df: pd.DataFrame, pred_df: pd.DataFrame) -> None:
+def plot_trigger_frequency_and_position_reversed_comparison(df: pd.DataFrame, pred_df: pd.DataFrame, model:str) -> None:
     """
     Plot the frequency and reversed position of triggers
 
@@ -943,7 +943,7 @@ def plot_trigger_frequency_and_position_reversed_comparison(df: pd.DataFrame, pr
     :return: None
     """
     plt.figure(figsize=(18, 6))
-    plt.suptitle("Frequency and Reversed Position of Triggers")
+    plt.suptitle("Occurrence and Reversed Position of Triggers " + f"({model})")
 
     triggers_f = []
     triggers_pos = []
@@ -976,12 +976,12 @@ def plot_trigger_frequency_and_position_reversed_comparison(df: pd.DataFrame, pr
         pred_trigger_freq_count = pd.Series(pred_trigger_freq_count.values.tolist() + missing_values)
 
     plt.bar(trigger_freq_count.index, trigger_freq_count.values, label='Real Triggers')
-    plt.bar(pred_trigger_freq_count.index, pred_trigger_freq_count.values, bottom=trigger_freq_count.values,
-            label='Predicted Triggers')
+    plt.bar(pred_trigger_freq_count.index, pred_trigger_freq_count.values, bottom=trigger_freq_count.values, label='Predicted Triggers')
     plt.xlabel('Number of Triggers')
     plt.ylabel('Frequency')
-    plt.title('Trigger Frequency')
-    plt.xticks(range(0, max(triggers_f) + 1))
+    plt.title('Number of Triggers per Dialogue')
+
+    plt.xticks(range(max(trigger_freq_count.index)+1))
     plt.legend(['Real Triggers', 'Predicted Triggers'])
 
     plt.subplot(1, 2, 2)
@@ -1000,8 +1000,8 @@ def plot_trigger_frequency_and_position_reversed_comparison(df: pd.DataFrame, pr
             label='Predicted Triggers')
     plt.xlabel('Position (Reversed)')
     plt.ylabel('Frequency')
-    plt.title('Trigger Position (Reversed)')
-    plt.xticks(range(0, 11), ['i', 'i -1', 'i -2', 'i -3', 'i -4', 'i -5', 'i -6', 'i -7', 'i -8', 'i -9', 'i -10'])
+    plt.title('Trigger Position Within Dialogue')
+    plt.xticks(range(len(trigger_pos_count)), ['i']+[f"i-{idx+1}" for idx in range(len(trigger_pos_count)-1)])
     plt.legend(['Real Triggers', 'Predicted Triggers'])
 
     plt.tight_layout()

@@ -373,12 +373,32 @@ def produce_speaker_emotion_distribution(dataframe: pd.DataFrame) -> pd.DataFram
     tmp_dict = {'speakers': [element for current_list in dataframe['speakers'] for element in current_list],
                 'emotions': [element for current_list in dataframe['emotions'] for element in current_list]
                 }
+
     tmp_df = pd.DataFrame(tmp_dict)
     emotions = tmp_df['emotions'].unique().tolist()
     tpm_df = tmp_df.pivot_table(index='speakers', columns='emotions', aggfunc='size', fill_value=0)
 
     return tpm_df.sort_values(by=emotions, ascending=[False] * len(emotions))
 
+
+def plot_emotion_distribution_per_speaker(emotions_per_speaker):
+    normalized_emotions_per_speaker = emotions_per_speaker.apply(lambda row: row / row.sum(), axis=1)
+
+    df_transposed = normalized_emotions_per_speaker.T
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    df_transposed.plot(kind='bar', ax=ax)
+    ax.set_xlabel('Emotions')
+    ax.set_ylabel('Emotion Value')
+    ax.set_title('Emotion Distribution Among Main Speakers')
+
+    plt.xticks(rotation=45)
+    plt.legend(title='Speakers', bbox_to_anchor=(1.05, 1), loc='upper left')
+
+    plt.tight_layout()
+    plt.show()
 
 def create_classes_weights(list_of_label_index: list[int], list_of_index_to_exclude: Optional[List] = None) -> np.array:
     """

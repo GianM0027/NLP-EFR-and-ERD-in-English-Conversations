@@ -10,12 +10,6 @@ The assignment focuses on the [EDiReF challenge (subtask iii)](https://lcs2.in/S
 * EFR: Given a dialogue, EFR aims to identify the trigger utterance(s) for an emotion-flip in a multi-party conversation dialogue.
 
 
-## Requirements
-Ensure you have the necessary dependencies by checking the `requirements.txt` file.
-
-```bash
-pip install -r requirements.txt
-```
 ## Main Notebook
 The main notebook (`main_notebook.ipynb`) serves as the central hub for this project. By executing this notebook, you can perform the following tasks:
 

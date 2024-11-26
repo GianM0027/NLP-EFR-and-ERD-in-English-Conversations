@@ -1,4 +1,4 @@
-# Emotion Discovery and Reasoning its Flip in Conversation (EDiReF)
+# Emotion Discovery and Reasoning Flip in Conversation (EDiReF)
 
 ### Course Project - Natural Language Processing
 
